@@ -8,5 +8,6 @@ conda update -q conda
 
 conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
 source activate test
+pip install --upgrade pip
 pip install pep8 nose
 python setup.py install
