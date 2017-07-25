@@ -4,111 +4,84 @@ import re
 import fnmatch
 import threading
 import tensorflow as tf
+import multiprocessing
 
-FILE_PATTERN = r'([0-9]+).*\.csv'
-FIND_FILES_PATTERN = '*.csv'
-# naming of variables
-
-def find_files(file_dir, pattern=FIND_FILES_PATTERN):
-    files = []
-    for root, dirnames, filenames in os.walk(file_dir):
-        for filename in fnmatch.filter(filenames, pattern):
-            files.append(os.path.join(root, filename))
-    return files
-
-def get_gc(file):
-    # need to be changed
-    id_reg_expression = re.compile(FILE_PATTERN)
-    matches = id_reg_expression.findall(file)[0]
-    return int(matches)
-
-def get_category_cardinality(files):
-    id_reg_expression = re.compile(FILE_PATTERN)
-    min_id = None
-    max_id = None
-    for _ in range(len(files)):
-        matches = id_reg_expression.findall(os.path.basename(files[_]))[0]
-        id = int(matches)
-        if min_id is None or id < min_id:
-            min_id = id
-        if max_id is None or id > max_id:
-            max_id = id
-    return min_id, max_id
 
 class CsvReader(object):
-    def __init__(self, file_dir, data_dim, coord, gc_enabled, receptive_field, sample_size=32, queue_size=250*16):
-        self.file_dir = file_dir
-        self.coord = coord
-        self.gc_enabled = gc_enabled
-        self.receptive_field = receptive_field
-        self.threads = []
-        self.data_dim = data_dim
-        self.sample_size = sample_size
-        self.queue_size = queue_size
+    def __init__(self, files, receptive_field, sample_size, config):
 
-        # Obtain queue of filename
-        # tf.train.string_input_producer craetes FIFO queue of tensor object
-        self.filename_queue = tf.train.string_input_producer(find_files(self.file_dir))
-        self.reader = tf.TextLineReader()
+        # We use batch size in tf.train.batch to indicate one chunk of data.
+        # TODO: Implement a second queue around these blocks if needed.
+        batch_size = receptive_field + sample_size
+        self.batch_size = batch_size
 
-        # Sets up the tf queue to store data
-        self.queue = tf.PaddingFIFOQueue(self.queue_size,
-                                         ['float32'],
-                                         shapes=[(None, self.data_dim)])
+        self.data_dim = config["data_dim"]
 
-        # This is needed for now to make the program go
-        if self.gc_enabled:
-            self.gc_placeholder = tf.placeholder(dtype=tf.int32, shape=None)
-            self.gc_queue = tf.PaddingFIFOQueue(self.queue_size,
-                                                ['int32'],
-                                                shapes=[()])
-            self.gc_enqueue = self.gc_queue.enqueue([self.gc_placeholder])
+        # Initialize the main data batch. This uses raw values, no lookup table.
+        data_files = [files[i] for i in xrange(len(files)) if files[i].endswith(config["data_suffix"])]
 
+        self.data_batch = self.input_batch(data_files, config["data_dim"], batch_size=batch_size)
 
+        if config["emotion_enabled"]:
+            emotion_dim = config["emotion_dim"]
+            emotion_categories = config["emotion_categories"]
+            emotion_files = [files[i] for i in xrange(len(files)) if files[i].endswith(config["emotion_suffix"])]
 
-            # need to find better implementation for this.
-            _, self.gc_category_cardinality = get_category_cardinality(find_files(self.file_dir))
-            self.gc_category_cardinality += 1
-            print("Detected --gc_cardinality={}".format(self.gc_category_cardinality))
+            self.emotion_cardinality = len(emotion_categories)
+            self.gc_batch = self.input_batch(emotion_files,
+                                             emotion_dim,
+                                             batch_size=batch_size,
+                                             mapping_strings=emotion_categories)
+
+        if config["phoneme_enabled"]:
+            phoneme_dim = config["phoneme_dim"]
+            phoneme_categories = config["phoneme_categories"]
+            phoneme_files = [files[i] for i in xrange(len(files)) if files[i].endswith(config["phoneme_suffix"])]
+
+            self.phoneme_cardinality = len(phoneme_categories)
+            self.lc_batch = self.input_batch(phoneme_files,
+                                             phoneme_dim,
+                                             batch_size=batch_size,
+                                             mapping_strings=emotion_categories)
+
+    def input_batch(self,
+                    filenames,
+                    data_dim,
+                    num_epochs=None,
+                    skip_header_lines=0,
+                    batch_size=200,
+                    mapping_strings=None):
+
+        filename_queue = tf.train.string_input_producer(filenames, num_epochs=num_epochs, shuffle=False)
+        reader = tf.TextLineReader(skip_header_lines=skip_header_lines)
+
+        _, rows = reader.read_up_to(filename_queue, num_records=batch_size)
+
+        # Parse the CSV File
+        if mapping_strings:
+            default_value = "N/A"
         else:
-            self.gc_category_cardinality = None
+            default_value = 1.0
 
-    def dequeue(self, num_elements):
-        return self.queue.dequeue_many(num_elements)
+        record_defaults = [[default_value] for _ in range(data_dim)]
+        features = tf.decode_csv(rows, record_defaults=record_defaults)
 
-    def dequeue_gc(self, num_elements):
-        return self.gc_queue.dequeue_many(num_elements)
+        # Mapping for Conditioning Files, replace String by lookup table.
+        if mapping_strings:
+            table = tf.contrib.lookup.index_table_from_tensor(tf.constant(mapping_strings))
+            features = table.lookup(tf.stack(features))
+            features = tf.unstack(features)
 
-    def thread_main(self, sess):
-        stop = False
-        # while thread is running keep fetching vlaues
-        while not stop:
-            if self.coord.should_stop():
-                stop = True
-                break
+        # This operation builds up a buffer of parsed tensors, so that parsing
+        # input data doesn't block training
+        # If requested it will also shuffle
+        features = tf.train.batch(
+            features,
+            batch_size,
+            capacity=batch_size * 100,
+            num_threads=multiprocessing.cpu_count(),
+            enqueue_many=True,
+            allow_smaller_final_batch=False
+        )
 
-            # Load dataset
-            key, value = self.reader.read_up_to(self.filename_queue, self.receptive_field + self.sample_size)
-            record_defaults = [[1.0] for _ in range(self.data_dim)]
-            value = tf.decode_csv(value, record_defaults=record_defaults)
-            value = tf.transpose(value, [1, 0])
-
-            value = tf.pad(value, [[self.receptive_field, 0], [0, 0]], 'CONSTANT')
-
-            sess.run(self.queue.enqueue(value))
-
-            # Get category_id
-            if self.gc_enabled:
-                filename = os.path.basename(sess.run(key)[0])
-                category_id = filename.split(':')[0]
-                category_id = get_gc(category_id)
-                sess.run(self.gc_enqueue, feed_dict={self.gc_placeholder: category_id})
-
-
-    def start_threads(self, sess, n_threads=1):
-        for _ in range(n_threads):
-            thread = threading.Thread(target=self.thread_main, args=(sess,))
-            thread.daemon = True
-            thread.start()
-            self.threads.append(thread)
-        return self.threads
+        return features
