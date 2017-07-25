@@ -167,7 +167,7 @@ class EveShell(cmd.Cmd):
 
         EveShell.do_surprise(self, arg)
         print("Switching to %s" % EveShell.emotionsColored[EveShell.currentEmotion])
-        EveShell.do_say(self, "<spurt audio='g0001_052'>wow</spurt> Wow, I am surprised this demo got so dark. But apparently the emotions I am trained on lead to this...")
+        EveShell.do_say(self, "Wow, I am surprised this demo got so dark. But apparently the emotions I am trained on lead to this...")
 
         EveShell.do_happy(self, arg)
         print("Switching to %s" % EveShell.emotionsColored[EveShell.currentEmotion])

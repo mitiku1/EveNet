@@ -42,7 +42,7 @@ class CsvReader(object):
             self.lc_batch = self.input_batch(phoneme_files,
                                              phoneme_dim,
                                              batch_size=batch_size,
-                                             mapping_strings=emotion_categories)
+                                             mapping_strings=phoneme_categories)
 
     def input_batch(self,
                     filenames,
