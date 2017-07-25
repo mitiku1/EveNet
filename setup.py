@@ -8,6 +8,6 @@ setup(name='trainer',
       author='Ralf Mayet',
       author_email='ralf.mayet@mindcloud.ai',
       license='Unlicense',
-      install_requires=['pandas', 'numpy', 'termcolor', 'tensorflow-gpu'],
+      install_requires=['pandas', 'numpy', 'termcolor', 'tensorflow'],
       packages=find_packages(),
       include_package_date=True)
