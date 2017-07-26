@@ -8,40 +8,39 @@ import multiprocessing
 
 
 class CsvReader(object):
-    def __init__(self, files, receptive_field, sample_size, config):
-
-        # We use batch size in tf.train.batch to indicate one chunk of data.
-        # TODO: Implement a second queue around these blocks if needed.
-        batch_size = receptive_field + sample_size
-        self.batch_size = batch_size
+    def __init__(self, files, batch_size, receptive_field, sample_size, config):
+        # indicates one chunk of data.
+        chunk_size = receptive_field + sample_size
 
         self.data_dim = config["data_dim"]
 
         # Initialize the main data batch. This uses raw values, no lookup table.
-        data_files = [files[i] for i in xrange(len(files)) if files[i].endswith(config["data_suffix"])]
+        data_files = [files[i] for i in range(len(files)) if files[i].endswith(config["data_suffix"])]
 
-        self.data_batch = self.input_batch(data_files, config["data_dim"], batch_size=batch_size)
+        self.data_batch = self.input_batch(data_files, config["data_dim"], batch_size=batch_size, chunk_size=chunk_size)
 
         if config["emotion_enabled"]:
             emotion_dim = config["emotion_dim"]
             emotion_categories = config["emotion_categories"]
-            emotion_files = [files[i] for i in xrange(len(files)) if files[i].endswith(config["emotion_suffix"])]
+            emotion_files = [files[i] for i in range(len(files)) if files[i].endswith(config["emotion_suffix"])]
 
             self.emotion_cardinality = len(emotion_categories)
             self.gc_batch = self.input_batch(emotion_files,
                                              emotion_dim,
                                              batch_size=batch_size,
+                                             chunk_size=chunk_size,
                                              mapping_strings=emotion_categories)
 
         if config["phoneme_enabled"]:
             phoneme_dim = config["phoneme_dim"]
             phoneme_categories = config["phoneme_categories"]
-            phoneme_files = [files[i] for i in xrange(len(files)) if files[i].endswith(config["phoneme_suffix"])]
+            phoneme_files = [files[i] for i in range(len(files)) if files[i].endswith(config["phoneme_suffix"])]
 
             self.phoneme_cardinality = len(phoneme_categories)
             self.lc_batch = self.input_batch(phoneme_files,
                                              phoneme_dim,
                                              batch_size=batch_size,
+                                             chunk_size=chunk_size,
                                              mapping_strings=phoneme_categories)
 
     def input_batch(self,
@@ -49,13 +48,14 @@ class CsvReader(object):
                     data_dim,
                     num_epochs=None,
                     skip_header_lines=0,
-                    batch_size=200,
+                    batch_size=10,
+                    chunk_size=100,
                     mapping_strings=None):
 
         filename_queue = tf.train.string_input_producer(filenames, num_epochs=num_epochs, shuffle=False)
         reader = tf.TextLineReader(skip_header_lines=skip_header_lines)
 
-        _, rows = reader.read_up_to(filename_queue, num_records=batch_size)
+        _, rows = reader.read_up_to(filename_queue, num_records=chunk_size)
 
         # Parse the CSV File
         if mapping_strings:
@@ -72,15 +72,21 @@ class CsvReader(object):
             features = table.lookup(tf.stack(features))
             features = tf.unstack(features)
 
-        # This operation builds up a buffer of parsed tensors, so that parsing
-        # input data doesn't block training
-        # If requested it will also shuffle
+        # Resize the feature vector in case we got an incomplete read from the reader
+        features = tf.transpose(features)
+        features = tf.image.resize_images(tf.reshape(features, [-1, data_dim, 1]),
+                                          size=[chunk_size, data_dim],
+                                          method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+        features = tf.reshape(features, [chunk_size, data_dim])
+
+        # WARNING...
         features = tf.train.batch(
-            features,
+            [features],
             batch_size,
+            shapes=[chunk_size, data_dim],
             capacity=batch_size * 100,
             num_threads=multiprocessing.cpu_count(),
-            enqueue_many=True,
+            enqueue_many=False,
             allow_smaller_final_batch=False
         )
 
