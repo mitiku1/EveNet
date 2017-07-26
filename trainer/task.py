@@ -280,7 +280,6 @@ def run(target,
                 tf.add_to_collection("predict_proba_incremental", net.predict_proba_incremental(samples_fast, gc_fast, lc_fast))
                 tf.add_to_collection("push_ops", net.push_ops)
             """
-            global_step_tensor = tf.contrib.framework.get_or_create_global_step()
 
         # Creates a MonitoredSession for training
         # MonitoredSession is a Session-like object that handles
