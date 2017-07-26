@@ -36,28 +36,27 @@ class EveShell(cmd.Cmd):
     api = cerevoice.CereVoice(voice_dir="/home/ralf/.hr/tts/voices",
                               license_dir="/home/ralf/.hr/tts/licenses",
                               voice="katherine")
-
     # Emotions
-    emotionsColored = [colored('Angry', 'red'),
+    emotionsColored = [colored('Anger', 'red'),
                        colored("Happy", 'blue'),
-                       colored("Sad", 'grey', attrs=['bold']),
+                       colored("Sadness", 'grey', attrs=['bold']),
                        colored("Neutral", 'white'),
-                       colored("Frustrated", 'yellow'),
+                       colored("Frustration", 'yellow'),
                        colored("Excited", 'cyan'),
                        colored("Fearful", 'magenta'),
                        colored("Surprise", 'cyan'),
-                       colored("Disgusted", 'green'),
-                       "Other"]
-    emotions = ['Angry',
+                       colored("Disgusted", 'cyan'),
+                       "Undefined"]
+    emotions = ['Anger',
                 "Happy",
-                "Sad",
+                "Sadness",
                 "Neutral",
-                "Frustrated",
+                "Frustration",
                 "Excited",
                 "Fearful",
                 "Surprise",
                 "Disgusted",
-                "Other"]
+                "Undefined"]
     currentEmotion = 0
 
     # Config

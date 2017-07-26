@@ -5,8 +5,8 @@
   "emotion_enabled": true,
   "emotion_dim": 1,
   "emotion_suffix": ".emo",
-  "emotion_categories": ["Angry", "Happy", "Sad", "Neutral", "Frustrated",
-               "Excited", "Fearful", "Disgusted", "Other", "Undefined"],
+  "emotion_categories": ["Anger", "Excited", "Fearful", "Frustration", "Happy",
+               "Neutral", "Sadness", "Surprise", "Disgusted", "Other", "Undefined"],
 
   "phoneme_enabled": true,
   "phoneme_dim": 4,
