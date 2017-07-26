@@ -266,6 +266,9 @@ class WaveNetModel(object):
             weights_gcond_filter = variables['gcond_filter']
             weights_gcond_gate = variables['gcond_gate']
 
+            # TODO: How to make this work with batching?
+            global_condition = tf.reshape(global_condition, [-1, self.global_channels])
+
             conv_filter = conv_filter + tf.matmul(global_condition, weights_gcond_filter)
             conv_gate = conv_gate + tf.matmul(global_condition, weights_gcond_gate)
 
@@ -273,7 +276,7 @@ class WaveNetModel(object):
             weights_lcond_filter = variables['lcond_filter']
             weights_lcond_gate = variables['lcond_gate']
 
-            # TODO: WARNING: This is a hack because CSV reader isnt working yet...
+            # TODO: Why is this needed here? Does it work for batches?
             local_condition = tf.reshape(local_condition, [1, -1, self.local_channels])
 
             conv_filter = conv_filter + tf.nn.conv1d(local_condition, weights_lcond_filter, stride=1, padding='SAME')
@@ -581,24 +584,22 @@ class WaveNetModel(object):
         The variables are all scoped to the given name.
         '''
         with tf.name_scope(name):
-            # We mu-law encode and quantize the input audioform.
             encoded = input_batch
 
             if self.scalar_input:
-                network_input = tf.reshape(
-                    tf.cast(input_batch, tf.float32),
-                    [self.batch_size, -1, 1])
+                network_input = tf.reshape(tf.cast(input_batch, tf.float32), [self.batch_size, -1, 1])
             else:
-                # TODO: HACKY WAY! Implement real batches..
-                network_input = tf.reshape(encoded, [1, -1, self.quantization_channels])
+                network_input = tf.reshape(encoded, [self.batch_size, -1, self.quantization_channels])
 
             if global_condition is not None:
                 gc_encoded = tf.one_hot(global_condition, self.global_channels)
+                gc_encoded = tf.reshape(gc_encoded, [self.batch_size, -1, self.global_channels])
             else:
                 gc_encoded = None
 
             if local_condition is not None:
-                lc_encoded = tf.one_hot(local_condition, self.local_channels / 4)  # TODO get channels.
+                lc_encoded = tf.one_hot(local_condition, self.local_channels / 4)  # TODO refactor to make general purpose.
+                lc_encoded = tf.reshape(lc_encoded, [self.batch_size, -1, self.local_channels])
             else:
                 lc_encoded = None
 
@@ -606,25 +607,22 @@ class WaveNetModel(object):
             # TODO: Is this necessary? It is not in the LC implementation...
             # network_input_width = tf.shape(network_input)[1] - 1
             # network_input = tf.slice(network_input, [0, 0, 0],
-            #                         [-1, network_input_width, -1])
+            #                     [-1, network_input_width, -1])
 
             raw_output = self._create_network(network_input,
                                               global_condition=gc_encoded,
                                               local_condition=lc_encoded)
 
             with tf.name_scope('loss'):
+
                 # Cut off the samples corresponding to the receptive field
                 # for the first predicted sample.
-                target_output = tf.slice(
-                    tf.reshape(
-                        encoded,
-                        [self.batch_size, -1, self.quantization_channels]),
-                    [0, self.receptive_field - 1, 0],
-                    [-1, -1, -1])
-                target_output = tf.reshape(target_output,
-                                           [-1, self.quantization_channels])
-                prediction = tf.reshape(raw_output,
-                                        [-1, self.quantization_channels])
+                target_output = tf.slice(tf.reshape(encoded, [self.batch_size, -1, self.quantization_channels]),
+                                         [0, self.receptive_field - 1, 0],
+                                         [-1, -1, -1])
+
+                target_output = tf.reshape(target_output, [-1, self.quantization_channels])
+                prediction = tf.reshape(raw_output, [-1, self.quantization_channels])
 
                 loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
 
