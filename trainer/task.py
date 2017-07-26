@@ -289,7 +289,7 @@ def run(target,
                                                is_chief=is_chief,
                                                checkpoint_dir=job_dir,
                                                hooks=hooks,
-                                               save_checkpoint_secs=20,
+                                               save_checkpoint_secs=120,
                                                save_summaries_steps=0) as session:  # TODO: SUMMARIES HERE
 
             # Global step to keep track of global number of steps particularly in
