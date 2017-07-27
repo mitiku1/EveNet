@@ -28,15 +28,15 @@ see reader config for valid...
 
 """
 
-
-HOST = '127.0.0.1'# must be input parameter @TODO
-PORT = 9999 # must be input parameter @TODO
+HOST = '127.0.0.1'  # must be input parameter @TODO
+PORT = 9999  # must be input parameter @TODO
 
 SAMPLES = 1000
 LOGDIR = './output'
 
 CURRENT_EMOTION = "Neutral"
 CURRENT_PHONEME = "SIL"
+
 
 def get_arguments():
     def _str_to_bool(s):
@@ -49,8 +49,7 @@ def get_arguments():
     def _ensure_positive_float(f):
         """Ensure argument is a positive float."""
         if float(f) < 0:
-            raise argparse.ArgumentTypeError(
-                    'Argument must be greater than zero')
+            raise argparse.ArgumentTypeError('Argument must be greater than zero')
         return float(f)
 
     parser = argparse.ArgumentParser(description='WaveNet generation script')
@@ -112,33 +111,39 @@ def write_output(data, filename):
 with open(get_arguments().reader_config) as json_file:
     mapping_config = json.load(json_file)
 
+
 def get_phoneme_id(phoneme):
     return mapping_config['phoneme_categories'].index(phoneme)
+
 
 def get_emotion_id(emotion):
     return mapping_config['emotion_categories'].index(emotion)
 
 
 """ Network stuff """
+
+
 def listener(serversock, arg):
     while 1:
         clientsock, addr = serversock.accept()
         thread.start_new_thread(handler, (clientsock, addr))
 
-def handler(clientsock,addr):
+
+def handler(clientsock, addr):
     global CURRENT_EMOTION, CURRENT_PHONEME
     while 1:
         data = clientsock.recv(1024)
         command = data.split(" ")
-        if len(command)==2:
+        if len(command) == 2:
             arg = command[1].strip()
 
-            if command[0]=="EMO":
+            if command[0] == "EMO":
                 if arg in mapping_config['emotion_categories']:
                     CURRENT_EMOTION = arg
-            if command[0]=="PHO":
+            if command[0] == "PHO":
                 if arg in mapping_config['phoneme_categories']:
                     CURRENT_PHONEME = arg
+
 
 def start_socket():
     print(colored("Listening on port %i" % PORT, 'cyan'))
@@ -150,11 +155,6 @@ def start_socket():
     thread.start_new_thread(listener, (serversock, 0))
 
 
-
-
-
-
-
 def main():
     args = get_arguments()
     started_datestring = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
@@ -164,12 +164,11 @@ def main():
 
     sess = tf.Session()
 
-
     # TODO: this does not seem necessary, is it?
-    #variables_to_restore = {
+    # variables_to_restore = {
     #    var.name[:-2]: var for var in tf.global_variables()
     #    if not ('state_buffer' in var.name or 'pointer' in var.name)}
-    #saver = tf.train.Saver(variables_to_restore)
+    # saver = tf.train.Saver(variables_to_restore)
 
     print('Restoring model from {}'.format(args.checkpoint))
     saver = tf.train.import_meta_graph(args.checkpoint + '.meta', clear_devices=False)
@@ -187,12 +186,14 @@ def main():
 
     # TODO: Build up seed placeholders...
     if args.dat_seed:
-        raise NotImplementedError("No seed function yet...")
+        print("Using Seed at %s" % args.dat_seed)
+        dat_seed = np.genfromtxt(args.dat_seed, delimiter=",")
+        data_feed = dat_seed[:config['receptive_field_size'], :]
     else:
-        data_feed = np.zeros([config['receptive_field_size'],config['data_dim']], dtype=np.float32)
-        gc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32)
-        lc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32)
+        data_feed = np.zeros([config['receptive_field_size'], config['data_dim']], dtype=np.float32)
 
+    gc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32) + 5   # Neutral
+    lc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32) + 47  # SIL
 
     last_sample_timestamp = datetime.now()
 
@@ -220,15 +221,14 @@ def main():
             prediction = sess.run(outputs, feed_dict={'samples:0': window_data, 'gc:0': window_gc, 'lc:0': window_lc})[0]
 
             data_feed = np.append(data_feed, prediction, axis=0)
-            ## TODO: HERE FEED IN THE CONDITIONINGS.
             gc_feed = np.append(gc_feed, get_emotion_id(CURRENT_EMOTION))
             lc_feed = np.append(lc_feed, get_phoneme_id(CURRENT_PHONEME))
 
             # TODO: Output to ROS here...
             print("%5i %s %s \n %s" % (step,
-                                      colored(CURRENT_EMOTION, 'blue'),
-                                      colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
-                                      colored(str(prediction), 'grey')))
+                                       colored(CURRENT_EMOTION, 'blue'),
+                                       colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
+                                       colored(str(prediction), 'grey')))
     except KeyboardInterrupt:
         pass
 
