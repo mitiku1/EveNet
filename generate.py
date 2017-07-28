@@ -187,13 +187,26 @@ def main():
     # TODO: Build up seed placeholders...
     if args.dat_seed:
         print("Using Seed at %s" % args.dat_seed)
+
+        # Data Seed file
         dat_seed = np.genfromtxt(args.dat_seed, delimiter=",")
         data_feed = dat_seed[:config['receptive_field_size'], :]
+
+        # Global conditioning on emotion categories
+        gc_lut = mapping_config['emotion_categories']
+        gc_feed_str = np.genfromtxt(args.dat_seed.replace(".dat", ".emo"), delimiter=",", dtype=str)
+        gc_feed = [gc_lut.index(emo) for emo in gc_feed_str]
+        gc_feed = gc_feed[:config['receptive_field_size']]
+
+        # Local conditioning on Phonemes.
+        lc_lut = mapping_config['phoneme_categories']
+        lc_feed_str = np.genfromtxt(args.dat_seed.replace(".dat", ".pho"), delimiter=",", dtype=str)
+        lc_feed = np.array([[lc_lut.index(pho) for pho in elem] for elem in lc_feed_str])
+        lc_feed = lc_feed[:config['receptive_field_size'], :]
     else:
         data_feed = np.zeros([config['receptive_field_size'], config['data_dim']], dtype=np.float32)
-
-    gc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32) + 5   # Neutral
-    lc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32) + 47  # SIL
+        gc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32) + 5   # Neutral
+        lc_feed = np.zeros((config['receptive_field_size'], 4), dtype=np.int32) + 47  # SIL
 
     last_sample_timestamp = datetime.now()
 
@@ -209,11 +222,11 @@ def main():
                 if len(data_feed) > config['receptive_field_size']:
                     window_data = data_feed[-config['receptive_field_size']:]
                     window_gc = gc_feed[-config['receptive_field_size']:]
-                    window_lc = lc_feed[-config['receptive_field_size']:]
+                    window_lc = lc_feed[-config['receptive_field_size']:, :]
                 else:
                     window_data = data_feed[:]
                     window_gc = gc_feed[:]
-                    window_lc = lc_feed[:]
+                    window_lc = lc_feed[:, :]
 
                 outputs = [next_sample]
 
@@ -222,13 +235,15 @@ def main():
 
             data_feed = np.append(data_feed, prediction, axis=0)
             gc_feed = np.append(gc_feed, get_emotion_id(CURRENT_EMOTION))
-            lc_feed = np.append(lc_feed, get_phoneme_id(CURRENT_PHONEME))
+            lc_feed = np.append(lc_feed, [[get_phoneme_id(CURRENT_PHONEME) for _ in range(4)]], axis=0)
+
+            print(window_lc[:, 1])
 
             # TODO: Output to ROS here...
-            print("%5i %s %s \n %s" % (step,
-                                       colored(CURRENT_EMOTION, 'blue'),
-                                       colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
-                                       colored(str(prediction), 'grey')))
+            #print("%5i %s %s \n %s" % (step,
+            #                          colored(CURRENT_EMOTION, 'blue'),
+            #                           colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
+            #                           colored(str(prediction), 'grey')))
     except KeyboardInterrupt:
         pass
 

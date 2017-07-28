@@ -260,10 +260,10 @@ def run(target,
 
             samples = tf.placeholder(tf.float32, shape=(receptive_field_size, reader.data_dim), name="samples")
             gc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="gc")
-            lc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="lc")
+            lc = tf.placeholder(tf.int32, shape=(receptive_field_size, 4), name="lc")
 
             gc = tf.one_hot(gc, gc_channels)
-            lc = tf.one_hot(lc, lc_channels)
+            lc = tf.one_hot(lc, lc_channels / 4)
 
             tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, lc))
 
