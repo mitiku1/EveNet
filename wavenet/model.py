@@ -170,7 +170,7 @@ class WaveNetModel(object):
                                 [self.global_channels,
                                  self.dilation_channels])
 
-                        if self.global_channels is not None:
+                        if self.local_channels is not None:
                             current['lcond_filter'] = create_variable(
                                 'filter',
                                 [1,
@@ -606,8 +606,7 @@ class WaveNetModel(object):
             # Cut off the last sample of network input to preserve causality.
             # TODO: Is this necessary? It is not in the LC implementation...
             # network_input_width = tf.shape(network_input)[1] - 1
-            # network_input = tf.slice(network_input, [0, 0, 0],
-            #                     [-1, network_input_width, -1])
+            # network_input = tf.slice(network_input, [0, 0, 0], [-1, network_input_width, -1])
 
             raw_output = self._create_network(network_input,
                                               global_condition=gc_encoded,
