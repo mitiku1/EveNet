@@ -237,13 +237,13 @@ def main():
             gc_feed = np.append(gc_feed, get_emotion_id(CURRENT_EMOTION))
             lc_feed = np.append(lc_feed, [[get_phoneme_id(CURRENT_PHONEME) for _ in range(4)]], axis=0)
 
-            print(window_lc[:, 1])
+            #print(window_lc[:, 1])
 
             # TODO: Output to ROS here...
-            #print("%5i %s %s \n %s" % (step,
-            #                          colored(CURRENT_EMOTION, 'blue'),
-            #                           colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
-            #                           colored(str(prediction), 'grey')))
+            print("%5i %s %s \n %s" % (step,
+                                       colored(CURRENT_EMOTION, 'blue'),
+                                       colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
+                                       colored(str(prediction), 'grey')))
     except KeyboardInterrupt:
         pass
 

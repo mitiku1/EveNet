@@ -43,8 +43,8 @@ class TestReader(tf.test.TestCase):
             np_data = np.genfromtxt(TEST_DATA + "/test.dat", delimiter=",")
             ref_dat = np.kron(np_data[:, :], np.ones([2, 1]))
 
-            self.assertTrue(sum(sum(dat[0] - ref_dat)) < 1.0e-05)
-            self.assertTrue(sum(sum(dat2[0] - ref_dat)) < 1.0e-05)
+            self.assertTrue(sum(sum(dat[0] - ref_dat)) < 1.0e-04)
+            self.assertTrue(sum(sum(dat2[0] - ref_dat)) < 1.0e-04)
 
 
 class TestReaderPartial(tf.test.TestCase):
@@ -81,9 +81,9 @@ class TestReaderPartial(tf.test.TestCase):
 
             np_data = np.genfromtxt(TEST_DATA + "/test.dat", delimiter=",")
 
-            self.assertTrue(sum(sum(dat[0] - np_data[0:3, :])) < 1.0e-05)
-            self.assertTrue(sum(sum(dat2[0] - np_data[3:6, :])) < 1.0e-05)
-            self.assertTrue(sum(sum(dat3[0] - np_data[6:9, :])) < 1.0e-05)
+            self.assertTrue(sum(sum(dat[0] - np_data[0:3, :])) < 1.0e-04)
+            self.assertTrue(sum(sum(dat2[0] - np_data[3:6, :])) < 1.0e-04)
+            self.assertTrue(sum(sum(dat3[0] - np_data[6:9, :])) < 1.0e-04)
 
 if __name__ == '__main__':
     tf.test.main()
