@@ -598,7 +598,7 @@ class WaveNetModel(object):
                 gc_encoded = None
 
             if local_condition is not None:
-                lc_encoded = tf.one_hot(local_condition, self.local_channels / 4)  # TODO refactor to make general purpose.
+                lc_encoded = tf.one_hot(local_condition, int(self.local_channels / 4))  # TODO refactor to make general purpose.
                 lc_encoded = tf.reshape(lc_encoded, [self.batch_size, -1, self.local_channels])
             else:
                 lc_encoded = None
