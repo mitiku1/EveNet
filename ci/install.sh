@@ -8,6 +8,7 @@ conda update -q conda
 
 conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
 source activate test
+sudo apt-get -y install python3-tk
 pip install --upgrade pip
-pip install pep8 nose tensorflow termcolor pandas
+pip install pep8 nose tensorflow termcolor pandas matplotlib
 python setup.py install
