@@ -260,10 +260,10 @@ def run(target,
 
             samples = tf.placeholder(tf.float32, shape=(receptive_field_size, reader.data_dim), name="samples")
             gc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="gc")
-            lc = tf.placeholder(tf.int32, shape=(receptive_field_size, 4), name="lc")
+            lc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="lc")  # TODO set to one
 
             gc = tf.one_hot(gc, gc_channels)
-            lc = tf.one_hot(lc, lc_channels / 4)
+            lc = tf.one_hot(lc, lc_channels / 1)  # TODO set to one...
 
             tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, lc))
 
@@ -290,7 +290,7 @@ def run(target,
                                                checkpoint_dir=job_dir,
                                                hooks=hooks,
                                                save_checkpoint_secs=120,
-                                               save_summaries_steps=0) as session:  # TODO: SUMMARIES HERE
+                                               save_summaries_steps=20) as session:  # TODO: SUMMARIES HERE
 
             # Global step to keep track of global number of steps particularly in
             # distributed setting
@@ -301,22 +301,29 @@ def run(target,
             try:
                 while (train_steps is None or
                        step < train_steps) and not session.should_stop():
-                    print("step %d" % step, end='\r')
-                    sys.stdout.flush()
-                    step, _ = session.run([global_step_tensor, train_op])
 
-                    """ # For debugging
-                    dat, gc, lc = session.run([reader.data_batch, reader.gc_batch, reader.lc_batch])
-                    print(colored(str(dat.shape), 'red', 'on_grey'))
-                    for field in dat:
-                        print(colored(str(field), 'red'))
-                    print(colored(str(lc.shape), 'red', 'on_grey'))
-                    for field in lc:
-                        print(colored(str(field), 'blue'))
-                    print(colored(str(gc.shape), 'red', 'on_grey'))
-                    for field in gc:
-                        print(colored(str(field), 'green'))
-                    """
+                    step, _, loss_val = session.run([global_step_tensor, train_op, loss])
+                    print("step %d loss %.4f" % (step, loss_val), end='\r')
+                    sys.stdout.flush()
+
+                    # For debugging
+                    # dat, gc, lc = session.run([reader.data_batch, reader.gc_batch, reader.lc_batch])
+                    # print(colored(str(dat.shape), 'red', 'on_grey'))
+                    # for field in dat:
+                    #     print(colored(str(field), 'red'))
+                    # print(colored(str(lc.shape), 'red', 'on_grey'))
+                    # for i in lc[0, -1, :]:
+                    #     print("%1d" % i, end='')
+                    #     sys.stdout.flush()
+                    # print(colored(str(gc.shape), 'red', 'on_grey'))
+                    # for i in gc[0, -1, :]:
+                    #     print("%1d" % i, end='')
+                    #     sys.stdout.flush()
+                    # for field in lc:
+                    #     print(colored(str(field), 'blue'))
+                    # print(colored(str(gc.shape), 'red', 'on_grey'))
+                    # for field in gc:
+                    #     print(colored(str(field), 'green'))
 
             except KeyboardInterrupt:
                 pass
@@ -445,11 +452,11 @@ if __name__ == "__main__":
                         help='Part of Wavenet Params')
     parser.add_argument('--gc_channels',
                         type=int,
-                        default=256,
+                        default=64,
                         help='Part of Wavenet Params')
     parser.add_argument('--lc_channels',
                         type=int,
-                        default=128,
+                        default=64,
                         help='Part of Wavenet Params')
 
     parser.add_argument('--verbosity',

@@ -9,7 +9,7 @@
                "Neutral", "Sadness", "Surprise", "Disgusted", "Other", "Undefined"],
 
   "phoneme_enabled": true,
-  "phoneme_dim": 4,
+  "phoneme_dim": 1,
   "phoneme_suffix": ".pho",
   "phoneme_categories": ["AA", "AE", "AH", "AO", "AW", "AX", "AXR", "AY", "B", "CH", "D",
     "DD", "DX", "DH", "EH", "ER", "EY", "F", "G", "HH", "IH", "IX", "IY", "JH",
