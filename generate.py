@@ -12,6 +12,7 @@ import pandas as pd
 import tensorflow as tf
 
 import json
+import matplotlib.pyplot as plt
 
 from socket import *
 import thread
@@ -201,12 +202,12 @@ def main():
         # Local conditioning on Phonemes.
         lc_lut = mapping_config['phoneme_categories']
         lc_feed_str = np.genfromtxt(args.dat_seed.replace(".dat", ".pho"), delimiter=",", dtype=str)
-        lc_feed = np.array([[lc_lut.index(pho) for pho in elem] for elem in lc_feed_str])
-        lc_feed = lc_feed[:config['receptive_field_size'], :]
+        lc_feed = [lc_lut.index(pho) for pho in lc_feed_str]
+        lc_feed = lc_feed[:config['receptive_field_size']]
     else:
         data_feed = np.zeros([config['receptive_field_size'], config['data_dim']], dtype=np.float32)
         gc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32) + 5   # Neutral
-        lc_feed = np.zeros((config['receptive_field_size'], 4), dtype=np.int32) + 47  # SIL
+        lc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32) + 47  # SIL
 
     last_sample_timestamp = datetime.now()
 
@@ -222,11 +223,11 @@ def main():
                 if len(data_feed) > config['receptive_field_size']:
                     window_data = data_feed[-config['receptive_field_size']:]
                     window_gc = gc_feed[-config['receptive_field_size']:]
-                    window_lc = lc_feed[-config['receptive_field_size']:, :]
+                    window_lc = lc_feed[-config['receptive_field_size']:]
                 else:
                     window_data = data_feed[:]
                     window_gc = gc_feed[:]
-                    window_lc = lc_feed[:, :]
+                    window_lc = lc_feed[:]
 
                 outputs = [next_sample]
 
@@ -235,15 +236,20 @@ def main():
 
             data_feed = np.append(data_feed, prediction, axis=0)
             gc_feed = np.append(gc_feed, get_emotion_id(CURRENT_EMOTION))
-            lc_feed = np.append(lc_feed, [[get_phoneme_id(CURRENT_PHONEME) for _ in range(4)]], axis=0)
+            lc_feed = np.append(lc_feed, get_phoneme_id(CURRENT_PHONEME))
 
             #print(window_lc[:, 1])
 
             # TODO: Output to ROS here...
-            print("%5i %s %s \n %s" % (step,
-                                       colored(CURRENT_EMOTION, 'blue'),
-                                       colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
-                                       colored(str(prediction), 'grey')))
+            fps = 1.0/(datetime.now() - last_sample_timestamp).total_seconds()
+            last_sample_timestamp = datetime.now()
+
+            print("%5i %s %s @ %.2f FPS (%.4fx) \n %s" % (step,
+                                          colored(CURRENT_EMOTION, 'blue'),
+                                          colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
+                                          fps,
+                                          fps / 120.0,
+                                          colored(str(prediction), 'grey')))
     except KeyboardInterrupt:
         pass
 
@@ -266,6 +272,7 @@ def main():
             data_feed = data_feed[config['receptive_field_size']:]
         samp = np.array(data_feed).reshape([-1, config['data_dim']])
         write_output(samp, args.out_path)
+        plt.imsave(args.out_path+".png", np.kron(samp[:,:], np.ones([1,20])))
 
     print('Finished generating. The result can be viewed in TensorBoard.')
 
