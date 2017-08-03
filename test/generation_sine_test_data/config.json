@@ -1,0 +1,15 @@
+{
+  "data_suffix": ".dat",
+  "data_dim": 2,
+
+  "emotion_enabled": true,
+  "emotion_dim": 1,
+  "emotion_suffix": ".emo",
+  "emotion_categories": ["EMO1", "EMO2", "EMO3"],
+
+  "phoneme_enabled": true,
+  "phoneme_dim": 1,
+  "phoneme_suffix": ".pho",
+  "phoneme_categories": ["PHO1", "PHO2"]
+
+}
