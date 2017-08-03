@@ -10,8 +10,8 @@ from wavenet import WaveNetModel, CsvReader, optimizer_factory
 
 TEST_DATA = "./test/generation_test_data"
 
-GC_CHANNELS = 2
-LC_CHANNELS = 16
+GC_CHANNELS = 128
+LC_CHANNELS = 128
 
 SAMPLE_SIZE = 2
 
