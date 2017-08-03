@@ -8,7 +8,7 @@
   "emotion_categories": ["EMO1", "EMO2", "EMO3"],
 
   "phoneme_enabled": true,
-  "phoneme_dim": 4,
+  "phoneme_dim": 1,
   "phoneme_suffix": ".pho",
   "phoneme_categories": ["PHO1", "PHO2", "PHO3"]
 

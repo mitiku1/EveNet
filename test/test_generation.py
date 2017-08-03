@@ -10,8 +10,8 @@ from wavenet import WaveNetModel, CsvReader, optimizer_factory
 
 TEST_DATA = "./test/generation_test_data"
 
-GC_CHANNELS = 128
-LC_CHANNELS = 128
+GC_CHANNELS = 16
+LC_CHANNELS = 16
 
 SAMPLE_SIZE = 2
 
@@ -77,7 +77,7 @@ class TestGeneration(tf.test.TestCase):
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=session, coord=coord)
 
-            for i in range(3000):
+            for i in range(5000):
                 _, loss_val = session.run([train_op, loss])
                 print("step %d loss %.4f" % (i, loss_val), end='\r')
                 sys.stdout.flush()
@@ -114,7 +114,7 @@ class TestGeneration(tf.test.TestCase):
                 for q in range(3):
                     gc_samples[:] = 0
                     lc_samples[:, :] = 0
-                    for _ in range(32):
+                    for _ in range(64):
                         prediction = session.run(predict, feed_dict={'samples:0': data_samples, 'gc:0': gc_samples, 'lc:0': lc_samples})
                         data_samples = data_samples[1:, :]
                         data_samples = np.append(data_samples, prediction, axis=0)
