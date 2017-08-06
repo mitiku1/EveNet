@@ -1,7 +1,8 @@
 
-STEPSIZE = 10  # 50000
+STEPSIZE=10  # 50000
 
 mkdir output/samplesize
+mkdir output/samplesize/backup
 
 for SAMPLESIZE in 1 2 4 8 16 32 64 128 256
 do
