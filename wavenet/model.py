@@ -403,6 +403,7 @@ class WaveNetModel(object):
 
         current_layer = self._create_causal_layer(current_layer)
 
+        # Why +1 ?
         output_width = tf.shape(input_batch)[1] - self.receptive_field + 1
 
         # Add all defined dilation layers.
@@ -607,7 +608,9 @@ class WaveNetModel(object):
             # TODO: Is this necessary? It is not in the LC implementation...
             # network_input_width = tf.shape(network_input)[1] - 1
             # network_input = tf.slice(network_input, [0, 0, 0], [-1, network_input_width, -1])
-
+            
+            print(network_input)
+            
             raw_output = self._create_network(network_input,
                                               global_condition=gc_encoded,
                                               local_condition=lc_encoded)
@@ -620,8 +623,15 @@ class WaveNetModel(object):
                                          [0, self.receptive_field - 1, 0],
                                          [-1, -1, -1])
 
+                print(target_output)
+
                 target_output = tf.reshape(target_output, [-1, self.quantization_channels])
                 prediction = tf.reshape(raw_output, [-1, self.quantization_channels])
+
+                print("AFTER reshape")
+                print(target_output)
+                print(prediction)
+
 
                 loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
 
