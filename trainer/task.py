@@ -213,9 +213,6 @@ def run(target,
                                                                           False,
                                                                           initial_filter_width)
 
-            print("Receptive Field Size: %d" % receptive_field_size)
-            print("Sample Size: %d" % sample_size)
-
             reader = CsvReader(
                 train_files,
                 batch_size=batch_size,
@@ -403,12 +400,12 @@ if __name__ == "__main__":
                         help='Learning rate for SGD')
 
     # WAVENET.PY
-    parser.add_argument('--sample-size',
+    parser.add_argument('--sample_size',
                         type=int,
                         default=32,
                         help='Concatenate and cut audio samples to this many '
                         'samples. Default: 1000')
-    parser.add_argument('--l2-regularization-strength', type=float,
+    parser.add_argument('--l2_regularization_strength', type=float,
                         default=0,
                         help='Coefficient in the L2 regularization. '
                         'Default: False')
@@ -420,11 +417,11 @@ if __name__ == "__main__":
                         'used by sgd or rmsprop optimizer. Ignored by the '
                         'adam optimizer. Default: 0.9.')
 
-    parser.add_argument('--reader-config', type=str,
+    parser.add_argument('--reader_config', type=str,
                         default="reader_config.json", help='Specify the path to the config file.')
 
     # Wavenet Params
-    parser.add_argument('--filter-width',
+    parser.add_argument('--filter_width',
                         type=int,
                         default=8,
                         help='Part of Wavenet Params')
@@ -433,31 +430,31 @@ if __name__ == "__main__":
                         default=[1, 2, 4, 8, 16, 32, 64, 128,
                                  1, 2, 4, 8, 16, 32, 64, 128],
                         help='Part of Wavenet Params')
-    parser.add_argument('--residual-channels',
+    parser.add_argument('--residual_channels',
                         type=int,
                         default=64,
                         help='Part of Wavenet Params')
-    parser.add_argument('--dilation-channels',
+    parser.add_argument('--dilation_channels',
                         type=int,
                         default=64,
                         help='Part of Wavenet Params')
-    parser.add_argument('--skip-channels',
+    parser.add_argument('--skip_channels',
                         type=int,
                         default=512,
                         help='Part of Wavenet Params')
-    parser.add_argument('--initial-filter-width',
+    parser.add_argument('--initial_filter_width',
                         type=int,
                         default=32,
                         help='Part of Wavenet Params')
-    parser.add_argument('--use-biases',
+    parser.add_argument('--use_biases',
                         type=bool,
                         default=True,
                         help='Part of Wavenet Params')
-    parser.add_argument('--gc-channels',
+    parser.add_argument('--gc_channels',
                         type=int,
                         default=64,
                         help='Part of Wavenet Params')
-    parser.add_argument('--lc-channels',
+    parser.add_argument('--lc_channels',
                         type=int,
                         default=64,
                         help='Part of Wavenet Params')
