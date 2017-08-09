@@ -423,24 +423,26 @@ if __name__ == "__main__":
     # Wavenet Params
     parser.add_argument('--filter_width',
                         type=int,
-                        default=8,
+                        default=2,
                         help='Part of Wavenet Params')
     parser.add_argument('--dilations',
                         type=list,
-                        default=[1, 2, 4, 8, 16, 32, 64, 128,
-                                 1, 2, 4, 8, 16, 32, 64, 128],
+                        default=[1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
+                                 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
+                                 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,					 
+				 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1, 2],
                         help='Part of Wavenet Params')
     parser.add_argument('--residual_channels',
                         type=int,
-                        default=64,
+                        default=512,
                         help='Part of Wavenet Params')
     parser.add_argument('--dilation_channels',
                         type=int,
-                        default=64,
+                        default=512,
                         help='Part of Wavenet Params')
     parser.add_argument('--skip_channels',
                         type=int,
-                        default=512,
+                        default=1024,
                         help='Part of Wavenet Params')
     parser.add_argument('--initial_filter_width',
                         type=int,
