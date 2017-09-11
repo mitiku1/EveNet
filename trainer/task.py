@@ -402,7 +402,7 @@ if __name__ == "__main__":
     # WAVENET.PY
     parser.add_argument('--sample_size',
                         type=int,
-                        default=32,
+                        default=1000,
                         help='Concatenate and cut audio samples to this many '
                         'samples. Default: 1000')
     parser.add_argument('--l2_regularization_strength', type=float,

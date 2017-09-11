@@ -35,7 +35,7 @@ PORT = 9999  # must be input parameter @TODO
 SAMPLES = 1000
 LOGDIR = './output'
 
-CURRENT_EMOTION = "Neutral"
+CURRENT_EMOTION = "Anger"
 CURRENT_PHONEME = "SIL"
 
 
