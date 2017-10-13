@@ -190,7 +190,7 @@ def main():
         print("Using Seed at %s" % args.dat_seed)
 
         # Data Seed file
-        dat_seed = np.genfromtxt(args.dat_seed, delimiter=",")
+        dat_seed = np.genfromtxt(args.dat_seed, delimiter=",").reshape((-1, 1))
         data_feed = dat_seed[:config['receptive_field_size'], :]
 
         # Global conditioning on emotion categories

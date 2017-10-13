@@ -452,7 +452,7 @@ if __name__ == "__main__":
                         help='Part of Wavenet Params')
     parser.add_argument('--gc_channels',
                         type=int,
-                        default=64,
+                        default=1,
                         help='Part of Wavenet Params')
     parser.add_argument('--lc_channels',
                         type=int,
