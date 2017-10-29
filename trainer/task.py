@@ -27,6 +27,7 @@ import json
 import os
 import threading
 import sys
+import numpy as np
 from termcolor import colored
 
 from wavenet import WaveNetModel, CsvReader, optimizer_factory
@@ -37,63 +38,93 @@ from tensorflow.python.saved_model import signature_constants as sig_constants
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
-class EvaluationRunHook(tf.train.SessionRunHook):
-    """EvaluationRunHook performs continuous evaluation of the model.
+## TODO: Implement Evaluation Run Hook to generate samples from phonemes and plot them as image to Tensorboard.
+##       See Github for reference implementation with seperate tf.graph object for this.
+
+class ValidationRunHook(tf.train.SessionRunHook):
+    """ValidationRunHook calculates continuous validation of the model.
 
     Args:
       checkpoint_dir (string): Dir to store model checkpoints
       metric_dir (string): Dir to store metrics like accuracy and auroc
       graph (tf.Graph): Evaluation graph
-      eval_frequency (int): Frequency of evaluation every n train steps
+      eval_frequency (int): Frequency of evaluation every n checkpoint steps
       eval_steps (int): Evaluation steps to be performed
     """
     def __init__(self,
-                 checkpoint_dir,
-                 metric_dict,
                  graph,
-                 eval_frequency,
-                 eval_steps=None,
+                 prediction_tensor,
+                 checkpoint_dir,
+                 eval_frequency=100,
                  **kwargs):
 
-        self._eval_steps = eval_steps
-        self._checkpoint_dir = checkpoint_dir
         self._kwargs = kwargs
         self._eval_every = eval_frequency
-        self._latest_checkpoint = None
-        self._checkpoints_since_eval = 0
+        self._steps_since_eval = 0
         self._graph = graph
+        self._session = None
 
-        # With the graph object as default graph
-        # See https://www.tensorflow.org/api_docs/python/tf/Graph#as_default
-        # Adds ops to the graph object
-        with graph.as_default():
-            value_dict, update_dict = tf.contrib.metrics.aggregate_metric_map(
-                metric_dict)
+        # Get Config
+        config = {}
+        for cfg_tensor in tf.get_collection("config"):
+            config[cfg_tensor.name.split(":")[0]] = tf.Session(graph=self._graph).run(cfg_tensor)
 
-            # Op that creates a Summary protocol buffer by merging summaries
-            self._summary_op = tf.summary.merge([
-                tf.summary.scalar(name, value_op)
-                for name, value_op in value_dict.iteritems()
-            ])
+        # Parameters
+        self._data_dim = config['data_dim']
 
-            # Saver class add ops to save and restore
-            # variables to and from checkpoint
-            self._saver = tf.train.Saver()
+        # Load Validation testset into RAM and split into pieces...
+        with open("./reader_config.json") as json_file:
+            mapping_config = json.load(json_file)
 
-            # Creates a global step to contain a counter for
-            # the global training step
-            self._gs = tf.contrib.framework.get_or_create_global_step()
+        # Data Seed file
+        validation_filename = "./data/anger-validation-split/anger_validation.dat" # TODO: take from args...
 
-            self._final_ops_dict = value_dict
-            self._eval_ops = update_dict.values()
+        dat_seed = np.genfromtxt(validation_filename, delimiter=",")
+
+        validation_sample_size = config['receptive_field_size'] + 1
+        
+        cutoff_samples = dat_seed.shape[0] % validation_sample_size
+        validation_samples = dat_seed.shape[0] / (validation_sample_size - cutoff_samples)
+        
+        self._validation_samples = dat_seed[:-cutoff_samples].reshape(-1,validation_sample_size,self._data_dim)
+
+        # Global conditioning on emotion categories
+        gc_lut = mapping_config['emotion_categories']
+        gc_feed_str = np.genfromtxt(validation_filename.replace(".dat", ".emo"), delimiter=",", dtype=str)
+        gc_feed = np.array([gc_lut.index(emo) for emo in gc_feed_str])
+        self._validation_samples_gc = gc_feed[:-cutoff_samples].reshape(-1,validation_sample_size,1)
+
+        # Local conditioning on Phonemes.
+        lc_lut = mapping_config['phoneme_categories']
+        lc_feed_str = np.genfromtxt(validation_filename.replace(".dat", ".pho"), delimiter=",", dtype=str)
+        lc_feed = np.array([lc_lut.index(pho) for pho in lc_feed_str])
+        self._validation_samples_lc = lc_feed[:-cutoff_samples].reshape(-1,validation_sample_size,1)
+
+        self._nr_validation_samples = self._validation_samples.shape[0]
+        print ("Number of validation samples %d" % self._nr_validation_samples)
+
+        # Tensor setup
+        self._prediction_tensor = tf.get_collection("predict_proba")[0]
+        self._target_placeholder = tf.placeholder(tf.float32, shape=(self._data_dim), name="target")
+        self._validation_score_tensor = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(self._target_placeholder, self._prediction_tensor))))
+
+        self._summary_tensor = tf.summary.scalar("validation_score", self._validation_score_tensor)
+
+        # Creates a global step to contain a counter for
+        # the global training step
+        self._gs = tf.contrib.framework.get_or_create_global_step()
 
         # MonitoredTrainingSession runs hooks in background threads
         # and it doesn't wait for the thread from the last session.run()
         # call to terminate to invoke the next hook, hence locks.
         self._eval_lock = threading.Lock()
-        self._checkpoint_lock = threading.Lock()
-        self._file_writer = tf.summary.FileWriter(
-            os.path.join(checkpoint_dir, 'eval'), graph=graph)
+        self._file_writer = tf.summary.FileWriter(checkpoint_dir+"/eval")
+
+
+
+
+    def after_create_session(self, session, coord):
+        self._session = session
 
     def after_run(self, run_context, run_values):
         # Always check for new checkpoints in case a single evaluation
@@ -102,22 +133,14 @@ class EvaluationRunHook(tf.train.SessionRunHook):
 
         if self._eval_lock.acquire(False):
             try:
-                if self._checkpoints_since_eval > self._eval_every:
-                    self._checkpoints_since_eval = 0
+                if self._steps_since_eval > self._eval_every:
+                    self._steps_since_eval = 0
                     self._run_eval()
             finally:
                 self._eval_lock.release()
 
     def _update_latest_checkpoint(self):
-        """Update the latest checkpoint file created in the output dir."""
-        if self._checkpoint_lock.acquire(False):
-            try:
-                latest = tf.train.latest_checkpoint(self._checkpoint_dir)
-                if not latest == self._latest_checkpoint:
-                    self._checkpoints_since_eval += 1
-                    self._latest_checkpoint = latest
-            finally:
-                self._checkpoint_lock.release()
+        self._steps_since_eval += 1
 
     def end(self, session):
         """Called at then end of session to make sure we always evaluate."""
@@ -128,44 +151,42 @@ class EvaluationRunHook(tf.train.SessionRunHook):
 
     def _run_eval(self):
         """Run model evaluation and generate summaries."""
-        print("SUMMARIES")
-        coord = tf.train.Coordinator(clean_stop_exception_types=(
-            tf.errors.CancelledError, tf.errors.OutOfRangeError))
+        print("Running model validation...")
 
-        with tf.Session(graph=self._graph) as session:
-            # Restores previously saved variables from latest checkpoint
-            self._saver.restore(session, self._latest_checkpoint)
+        if self._session:
+        #    # Restores previously saved variables from latest checkpoint
+        #    self._saver.restore(session, self._latest_checkpoint)
 
-            session.run([
-                tf.tables_initializer(),
-                tf.local_variables_initializer()
-            ])
-            tf.train.start_queue_runners(coord=coord, sess=session)
-            train_step = session.run(self._gs)
+            for i in range(self._nr_validation_samples):
+                data = self._validation_samples[i]
+                gc = self._validation_samples_gc[i]
+                lc = self._validation_samples_lc[i]
+                
+                data_feed = data[:-1,:]
+                gc_feed = gc[:-1,0]
+                lc_feed = lc[:-1,0]
 
-            tf.logging.info('Starting Evaluation For Step: {}'.format(train_step))
-            with coord.stop_on_exception():
-                eval_step = 0
-                while not coord.should_stop() and (self._eval_steps is None or
-                                                   eval_step < self._eval_steps):
-                    summaries, final_values, _ = session.run(
-                        [self._summary_op, self._final_ops_dict, self._eval_ops])
-                    if eval_step % 100 == 0:
-                        tf.logging.info("On Evaluation Step: {}".format(eval_step))
-                    eval_step += 1
+                target = data[-1,:]
 
-            # Write the summaries
-            self._file_writer.add_summary(summaries, global_step=train_step)
-            self._file_writer.flush()
-            tf.logging.info(final_values)
+                summaries, validation_score, train_step = self._session.run([self._summary_tensor, 
+                                                                              self._validation_score_tensor, 
+                                                                              self._gs], feed_dict={'samples:0': data_feed, 
+                                                                                                    'gc:0': gc_feed, 
+                                                                                                    'lc:0': lc_feed, 
+                                                                                                    'target:0': target})
+
+                # Write the summaries
+                self._file_writer.add_summary(summaries, global_step=train_step)
+                self._file_writer.flush()
+                tf.logging.info(validation_score)
 
 
 def run(target,
-        is_chief,
         train_steps,
         job_dir,
         train_files,
         reader_config,
+        run_validation,
         batch_size,
         learning_rate,
         residual_channels,
@@ -182,20 +203,15 @@ def run(target,
         momentum,
         optimizer):
 
-    # Run the training and evaluation graph.
-
-    # If the server is chief which is `master`
-    # In between graph replication Chief is one node in
-    # the cluster with extra responsibility and by default
-    # is worker task zero. We have assigned master as the chief.
-    #
-    # See https://youtu.be/la_M6bCV91M?t=1203 for details on
-    # distributed TensorFlow and motivation about chief.
-    # TODO: hooks
-    hooks = []
-
     # Create a new graph and specify that as default
-    with tf.Graph().as_default():
+    default_graph = tf.Graph()
+    with default_graph.as_default():
+        file_writer = tf.summary.FileWriter(job_dir, graph=default_graph)
+
+
+        # Initially empty, get's filled up below
+        hooks = []
+
         # Placement of ops on devices using replica device setter
         # which automatically places the parameters on the `ps` server
         # and the `ops` on the workers
@@ -247,6 +263,8 @@ def run(target,
                             local_condition=reader.lc_batch,
                             l2_regularization_strength=l2_regularization_strength)
 
+            summary_tensor = tf.summary.scalar("loss", loss)
+
             optimizer = optimizer_factory[optimizer](learning_rate=learning_rate, momentum=momentum)
 
             trainable = tf.trainable_variables()
@@ -265,7 +283,18 @@ def run(target,
             gc = tf.one_hot(gc, gc_channels)
             lc = tf.one_hot(lc, lc_channels / 1)  # TODO set to one...
 
-            tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, lc))
+            prediction_tensor = net.predict_proba(samples, gc, lc)
+            tf.add_to_collection("predict_proba", prediction_tensor)
+
+            # Validation Hook
+            if run_validation:
+              hooks = [ValidationRunHook(
+                  default_graph,
+                  prediction_tensor,
+                  job_dir,
+                  eval_frequency=100
+              )]
+
 
             # TODO: Implement fast generation
             """
@@ -286,11 +315,11 @@ def run(target,
         # initialization, recovery and hooks
         # https://www.tensorflow.org/api_docs/python/tf/train/MonitoredTrainingSession
         with tf.train.MonitoredTrainingSession(master=target,
-                                               is_chief=is_chief,
                                                checkpoint_dir=job_dir,
                                                hooks=hooks,
                                                save_checkpoint_secs=120,
-                                               save_summaries_steps=20) as session:  # TODO: SUMMARIES HERE
+                                               save_summaries_steps=None,
+                                               save_summaries_secs=None) as session:  # TODO: SUMMARIES HERE
 
             # Global step to keep track of global number of steps particularly in
             # distributed setting
@@ -302,7 +331,11 @@ def run(target,
                 while (train_steps is None or
                        step < train_steps) and not session.should_stop():
 
-                    step, _, loss_val = session.run([global_step_tensor, train_op, loss])
+                    step, _, loss_val, summaries = session.run([global_step_tensor, train_op, loss, summary_tensor])
+
+                    file_writer.add_summary(summaries, global_step=step)
+                    file_writer.flush()
+
                     print("step %d loss %.4f" % (step, loss_val), end='\r')
                     sys.stdout.flush()
 
@@ -340,7 +373,7 @@ def dispatch(*args, **kwargs):
 
     # If TF_CONFIG is not available run local
     if not tf_config:
-        return run('', True, *args, **kwargs)
+        return run('', *args, **kwargs)
 
     tf_config_json = json.loads(tf_config)
 
@@ -367,7 +400,7 @@ def dispatch(*args, **kwargs):
         server.join()
         return
     elif job_name in ['master', 'worker']:
-        return run(server.target, job_name == 'master', *args, **kwargs)
+        return run(server.target, *args, **kwargs)
 
 
 if __name__ == "__main__":
@@ -420,6 +453,11 @@ if __name__ == "__main__":
     parser.add_argument('--reader_config', type=str,
                         default="reader_config.json", help='Specify the path to the config file.')
 
+    parser.add_argument('--run-validation',
+                        type=bool,
+                        default=True,
+                        help='Run validation and safe to Tensorboard.')
+
     # Wavenet Params
     parser.add_argument('--filter_width',
                         type=int,
@@ -452,7 +490,7 @@ if __name__ == "__main__":
                         help='Part of Wavenet Params')
     parser.add_argument('--gc_channels',
                         type=int,
-                        default=1,
+                        default=64,
                         help='Part of Wavenet Params')
     parser.add_argument('--lc_channels',
                         type=int,
