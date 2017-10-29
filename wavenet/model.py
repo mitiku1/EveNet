@@ -628,9 +628,9 @@ class WaveNetModel(object):
                 loss = tf.nn.sigmoid_cross_entropy_with_logits(
                     labels=target_output,
                     logits=prediction,
-                    name=loss
+                    name="loss"
                 )
-                
+
                 reduced_loss = loss
 
                 tf.summary.scalar('loss', reduced_loss)
