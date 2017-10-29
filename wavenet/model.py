@@ -631,7 +631,7 @@ class WaveNetModel(object):
                     name="loss"
                 )
 
-                reduced_loss = loss
+                reduced_loss = tf.reduce_mean(loss)
 
                 tf.summary.scalar('loss', reduced_loss)
 
