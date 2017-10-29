@@ -623,8 +623,14 @@ class WaveNetModel(object):
                 target_output = tf.reshape(target_output, [-1, self.quantization_channels])
                 prediction = tf.reshape(raw_output, [-1, self.quantization_channels])
 
-                loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
+                #loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
 
+                loss = tf.nn.sigmoid_cross_entropy_with_logits(
+                    labels=target_output,
+                    logits=prediction,
+                    name=loss
+                )
+                
                 reduced_loss = loss
 
                 tf.summary.scalar('loss', reduced_loss)
