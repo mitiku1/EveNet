@@ -33,6 +33,7 @@ from wavenet import WaveNetModel, CsvReader, optimizer_factory
 
 import tensorflow as tf
 from tensorflow.python.saved_model import signature_constants as sig_constants
+import numpy as np
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -221,6 +222,8 @@ def run(target,
                 config=reader_config
             )
 
+            discard_random_chunk = reader.discard_random_chunk_op()
+
             # Create network.
             net = WaveNetModel(
                 batch_size=batch_size,
@@ -303,8 +306,18 @@ def run(target,
                        step < train_steps) and not session.should_stop():
 
                     step, _, loss_val = session.run([global_step_tensor, train_op, loss])
-                    print("step %d loss %.4f" % (step, loss_val), end='\r')
+
+                    #step, loss_val = session.run([global_step_tensor, loss])
+                    print("step %d loss %.4f" % (step, loss_val), end='\n')
+                    #print("%.4f" % (loss_val), end='\n')
                     sys.stdout.flush()
+
+                    if(np.random.random()>0.5):
+                        #print("discarding a bit of data to spruce things up")
+                        # This is an absolute hack to make sure the network sees unique parts of the data
+                        # The entire csv reader should be revamped to be able to concatenate files instead of resizing the last sample
+                        # this would also mitigate this issue.
+                        session.run(discard_random_chunk)
 
                     # For debugging
                     # dat, gc, lc = session.run([reader.data_batch, reader.gc_batch, reader.lc_batch])

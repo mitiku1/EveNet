@@ -5,19 +5,20 @@ import fnmatch
 import threading
 import tensorflow as tf
 import multiprocessing
-
+import numpy as np
 
 class CsvReader(object):
     def __init__(self, files, batch_size, receptive_field, sample_size, config):
         # indicates one chunk of data.
         chunk_size = receptive_field + sample_size
+        self.chunk_size = chunk_size
 
         self.data_dim = config["data_dim"]
 
         # Initialize the main data batch. This uses raw values, no lookup table.
         data_files = [files[i] for i in range(len(files)) if files[i].endswith(config["data_suffix"])]
 
-        self.data_batch = self.input_batch(data_files, config["data_dim"], batch_size=batch_size, chunk_size=chunk_size)
+        self.data_batch, self.data_reader, self.data_filequeue = self.input_batch(data_files, config["data_dim"], batch_size=batch_size, chunk_size=chunk_size)
 
         if config["emotion_enabled"]:
             emotion_dim = config["emotion_dim"]
@@ -25,7 +26,7 @@ class CsvReader(object):
             emotion_files = [files[i] for i in range(len(files)) if files[i].endswith(config["emotion_suffix"])]
 
             self.emotion_cardinality = len(emotion_categories)
-            self.gc_batch = self.input_batch(emotion_files,
+            self.gc_batch, self.gc_reader, self.gc_filequeue = self.input_batch(emotion_files,
                                              emotion_dim,
                                              batch_size=batch_size,
                                              chunk_size=chunk_size,
@@ -37,11 +38,21 @@ class CsvReader(object):
             phoneme_files = [files[i] for i in range(len(files)) if files[i].endswith(config["phoneme_suffix"])]
 
             self.phoneme_cardinality = len(phoneme_categories)
-            self.lc_batch = self.input_batch(phoneme_files,
+            self.lc_batch, self.lc_reader, self.lc_filequeue = self.input_batch(phoneme_files,
                                              phoneme_dim,
                                              batch_size=batch_size,
                                              chunk_size=chunk_size,
                                              mapping_strings=phoneme_categories)
+
+    def discard_random_chunk_op(self):
+        # this function generated a tensor op to discard a random number of samples from
+        # the reader queue in order to make sure we get unique samples from training data.
+        # this is an absolute hack and should be reworked ASAP... Best to use a custom queue again.
+        nr_of_samples = int(np.random.random() * self.chunk_size)
+
+        return [self.data_reader.read_up_to(self.data_filequeue, num_records=nr_of_samples),
+                self.gc_reader.read_up_to(self.gc_filequeue, num_records=nr_of_samples),
+                self.lc_reader.read_up_to(self.lc_filequeue, num_records=nr_of_samples)]
 
     def input_batch(self,
                     filenames,
@@ -90,4 +101,4 @@ class CsvReader(object):
             allow_smaller_final_batch=False
         )
 
-        return features
+        return features, reader, filename_queue
