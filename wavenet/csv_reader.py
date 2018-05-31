@@ -17,37 +17,50 @@ class CsvReader(object):
         # Initialize the main data batch. This uses raw values, no lookup table.
         data_files = [files[i] for i in range(len(files)) if files[i].endswith(config["data_suffix"])]
 
+        emotions_files = []
+        for df in data_files:
+            em_file = df[:-3]+"emo"
+            emotions_files.append(em_file)
+        phonemes_files = []
+        for df in data_files:
+            phone_file = df[:-3]+"emo"
+            phonemes_files.append(phone_file)
+
         self.data_batch = self.input_batch(data_files, config["data_dim"], batch_size=batch_size, chunk_size=chunk_size)
 
         if config["emotion_enabled"]:
             emotion_dim = config["emotion_dim"]
             emotion_categories = config["emotion_categories"]
-            emotion_files = [files[i] for i in range(len(files)) if files[i].endswith(config["emotion_suffix"])]
+            # emotion_files = [files[i] for i in range(len(files)) if files[i].endswith(config["emotion_suffix"])]
 
             self.emotion_cardinality = len(emotion_categories)
-            self.gc_batch = self.input_batch(emotion_files,
+            self.gc_batch = self.input_batch(emotions_files,
                                              emotion_dim,
                                              batch_size=batch_size,
                                              chunk_size=chunk_size,
                                              mapping_strings=emotion_categories)
+        else:
+            self.gc_batch  = None
 
         if config["phoneme_enabled"]:
             phoneme_dim = config["phoneme_dim"]
             phoneme_categories = config["phoneme_categories"]
-            phoneme_files = [files[i] for i in range(len(files)) if files[i].endswith(config["phoneme_suffix"])]
+            # phoneme_files = [files[i] for i in range(len(files)) if files[i].endswith(config["phoneme_suffix"])]
 
             self.phoneme_cardinality = len(phoneme_categories)
-            self.lc_batch = self.input_batch(phoneme_files,
+            self.lc_batch = self.input_batch(phonemes_files,
                                              phoneme_dim,
                                              batch_size=batch_size,
                                              chunk_size=chunk_size,
                                              mapping_strings=phoneme_categories)
+        else:
+            self.lc_batch  = None
 
     def input_batch(self,
                     filenames,
                     data_dim,
                     num_epochs=None,
-                    skip_header_lines=0,
+                    skip_header_lines=1,
                     batch_size=10,
                     chunk_size=100,
                     mapping_strings=None):
