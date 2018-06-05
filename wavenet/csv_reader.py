@@ -27,7 +27,8 @@ class CsvReader(object):
             phonemes_files.append(phone_file)
 
         self.data_batch = self.input_batch(data_files, config["data_dim"], batch_size=batch_size, chunk_size=chunk_size)
-
+        self.quantization_channels = config["quantization_channels"]
+        self.context_matrix = config["context_matrix"]
         if config["emotion_enabled"]:
             emotion_dim = config["emotion_dim"]
             emotion_categories = config["emotion_categories"]
@@ -38,7 +39,7 @@ class CsvReader(object):
                                              emotion_dim,
                                              batch_size=batch_size,
                                              chunk_size=chunk_size,
-                                             mapping_strings=emotion_categories)
+                                             mapping_strings=emotion_categories,skip_header_lines=0)
         else:
             self.gc_batch  = None
 
@@ -52,7 +53,7 @@ class CsvReader(object):
                                              phoneme_dim,
                                              batch_size=batch_size,
                                              chunk_size=chunk_size,
-                                             mapping_strings=phoneme_categories)
+                                             mapping_strings=phoneme_categories,skip_header_lines=0)
         else:
             self.lc_batch  = None
 
