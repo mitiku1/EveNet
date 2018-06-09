@@ -253,19 +253,19 @@ def run(target,
 
             train_op = optimizer.minimize(loss, var_list=trainable, global_step=global_step_tensor)
 
-            # Add Generation operator to graph for later use in generate.py
-            tf.add_to_collection("config", tf.constant(reader.data_dim, name='data_dim'))
-            tf.add_to_collection("config", tf.constant(receptive_field_size, name='receptive_field_size'))
-            tf.add_to_collection("config", tf.constant(sample_size, name='sample_size'))
+            # # Add Generation operator to graph for later use in generate.py
+            # tf.add_to_collection("config", tf.constant(reader.data_dim, name='data_dim'))
+            # tf.add_to_collection("config", tf.constant(receptive_field_size, name='receptive_field_size'))
+            # tf.add_to_collection("config", tf.constant(sample_size, name='sample_size'))
 
-            samples = tf.placeholder(tf.float32, shape=(receptive_field_size, reader.data_dim), name="samples")
-            gc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="gc")
-            lc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="lc")  # TODO set to one
+            # samples = tf.placeholder(tf.float32, shape=(receptive_field_size, reader.data_dim), name="samples")
+            # gc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="gc")
+            # lc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="lc")  # TODO set to one
 
-            gc = tf.one_hot(gc, gc_channels)
-            lc = tf.one_hot(lc, lc_channels / 1)  # TODO set to one...
+            # gc = tf.one_hot(gc, gc_channels)
+            # lc = tf.one_hot(lc, lc_channels / 1)  # TODO set to one...
 
-            tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, lc))
+            # tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, lc))
 
             # TODO: Implement fast generation
             """
