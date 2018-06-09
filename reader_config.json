@@ -5,7 +5,7 @@
   "emotion_enabled": true,
   "emotion_dim": 1,
   "emotion_suffix": ".emo",
-  "emotion_categories": ["Anger"],
+  "emotion_categories": ["0","1"],
 
   "phoneme_enabled": false,
   "phoneme_dim": 1,
