@@ -1,7 +1,8 @@
 {
   "data_suffix": ".dat",
   "data_dim": 75,
-
+  "quantization_channels" : 11,
+  "context_matrix" : [0.0 , 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0 ],
   "emotion_enabled": true,
   "emotion_dim": 1,
   "emotion_suffix": ".emo",

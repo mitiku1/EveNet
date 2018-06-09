@@ -59,5 +59,9 @@ def causal_conv(value, filter_, dilation, name='causal_conv'):
         # Remove excess elements at the end.
         result = tf.slice(restored,
                           [0, 0, 0],
+<<<<<<< HEAD
                           [tf.shape(value)[0], -1, -1])
+=======
+                          [tf.shape(value)[0],-1, -1])
+>>>>>>> 87e120909317d4b9b6a4c998912dc039aeb5533f
         return result

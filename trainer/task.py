@@ -229,13 +229,16 @@ def run(target,
                 residual_channels=residual_channels,
                 dilation_channels=dilation_channels,
                 skip_channels=skip_channels,
-                quantization_channels=reader.data_dim,
+                quantization_channels=reader.quantization_channels,
+                context_matrix=reader.context_matrix,
                 use_biases=use_biases,
                 scalar_input=False,
                 initial_filter_width=initial_filter_width,
                 histograms=False,
                 global_channels=gc_channels,
-                local_channels=lc_channels)
+                local_channels=lc_channels,
+                data_dim = reader.data_dim
+                )
 
             global_step_tensor = tf.contrib.framework.get_or_create_global_step()
 
@@ -262,10 +265,17 @@ def run(target,
             # gc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="gc")
             # lc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="lc")  # TODO set to one
 
+<<<<<<< HEAD
             # gc = tf.one_hot(gc, gc_channels)
             # lc = tf.one_hot(lc, lc_channels / 1)  # TODO set to one...
 
             # tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, lc))
+=======
+            gc = tf.one_hot(gc, gc_channels)
+            lc = tf.one_hot(lc, lc_channels / 1)  # TODO set to one...
+        
+            tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, None))
+>>>>>>> 87e120909317d4b9b6a4c998912dc039aeb5533f
 
             # TODO: Implement fast generation
             """
