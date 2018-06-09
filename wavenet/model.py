@@ -573,6 +573,41 @@ class WaveNetModel(object):
             # return tf.reshape(last, [-1])
             return out
 
+    def encode_to_softmax_distribution(self,data):
+            
+        data_shape = data.get_shape().as_list()
+        data = tf.reshape(data,[-1,data_shape[2]])
+
+        data_shape = data.get_shape().as_list()
+        data_10x = data * 10
+        data_10xceil = tf.ceil(data_10x + tf.keras.backend.epsilon()*10) # c
+
+        data_10xfloor = tf.floor(data_10x) # d
+        ceil_prob =  data_10x - data_10xfloor #a
+        floor_prob = 1 - ceil_prob #b
+
+
+        first_indexes = tf.range(data_shape[0]) # range1
+        second_indexes = tf.range(data_shape[1]) # range2
+        first_indexes = tf.reshape(tf.tile(tf.reshape(first_indexes,[-1,1]),[1,data_shape[1]]),[-1])
+        second_indexes = tf.tile(second_indexes,[data_shape[0]])
+        
+        data_10xceil = tf.cast(data_10xceil,tf.int32)
+        data_10xceil = tf.reshape(data_10xceil,(-1,))
+
+        data_10xfloor = tf.cast(data_10xfloor,tf.int32)
+        data_10xfloor = tf.reshape(data_10xfloor,(-1,))
+
+        indeces_ceil =  tf.stack((first_indexes,second_indexes,data_10xceil),axis=-1)
+        indeces_floor =  tf.stack((first_indexes,second_indexes,data_10xfloor),axis=-1)
+
+        ceil_prob = tf.reshape(ceil_prob,(-1,))
+        floor_prob = tf.reshape(floor_prob,(-1,))
+
+        softmax_distr_ceil =  tf.scatter_nd(indeces_ceil,ceil_prob,tf.constant((data_shape[0],data_shape[1],self.quantization_channels)))
+        softmax_distr_floor =  tf.scatter_nd(indeces_floor,floor_prob,tf.constant((data_shape[0],data_shape[1],self.quantization_channels)))
+        return softmax_distr_ceil + softmax_distr_floor
+
     def loss(self,
              input_batch,
              global_condition=None,
