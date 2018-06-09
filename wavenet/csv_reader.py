@@ -10,13 +10,13 @@ import multiprocessing
 class CsvReader(object):
     def __init__(self, files, batch_size, receptive_field, sample_size, config):
         # indicates one chunk of data.
-        chunk_size = receptive_field[1] + sample_size
+        chunk_size = receptive_field + sample_size
 
         self.data_dim = config["data_dim"]
 
         # Initialize the main data batch. This uses raw values, no lookup table.
         data_files = [files[i] for i in range(len(files)) if files[i].endswith(config["data_suffix"])]
-
+        
         emotions_files = []
         for df in data_files:
             em_file = df[:-3]+"emo"
@@ -64,7 +64,7 @@ class CsvReader(object):
                     batch_size=10,
                     chunk_size=100,
                     mapping_strings=None):
-
+    
         filename_queue = tf.train.string_input_producer(filenames, num_epochs=num_epochs, shuffle=False)
         reader = tf.TextLineReader(skip_header_lines=skip_header_lines)
 

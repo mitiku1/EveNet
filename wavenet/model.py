@@ -47,7 +47,10 @@ class WaveNetModel(object):
                  initial_filter_width=32,
                  histograms=False,
                  global_channels=128,
-                 local_channels=256):
+                 local_channels=256,
+                 data_dim = 75,
+                 
+                 ):
         '''Initializes the WaveNet model.
 
         Args:
@@ -87,7 +90,7 @@ class WaveNetModel(object):
         self.filter_width = filter_width
         self.residual_channels = residual_channels
         self.dilation_channels = dilation_channels
-        self.quantization_channels = quantization_channels
+        # self.quantization_channels = quantization_channels
         self.use_biases = use_biases
         self.skip_channels = skip_channels
         self.scalar_input = scalar_input
@@ -95,7 +98,9 @@ class WaveNetModel(object):
         self.histograms = histograms
         self.global_channels = global_channels
         self.local_channels = local_channels
-
+        self.data_dim = data_dim
+        self.context_matrix = tf.range(0,1.1,0.1)
+        self.quantization_channels = self.context_matrix.shape.as_list()[0]
         self.receptive_field = WaveNetModel.calculate_receptive_field(
             self.filter_width, self.dilations, self.scalar_input,
             self.initial_filter_width)
@@ -403,7 +408,7 @@ class WaveNetModel(object):
 
         current_layer = self._create_causal_layer(current_layer)
 
-        output_width = tf.shape(input_batch)[1] - self.receptive_field + 1
+        output_width = tf.shape(input_batch)[0] - self.receptive_field + 1
 
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
@@ -433,16 +438,16 @@ class WaveNetModel(object):
             # We skip connections from the outputs of each layer, adding them
             # all up here.
             total = sum(outputs)
-            transformed1 = tf.nn.sigmoid(total)
+            transformed1 = tf.nn.relu(total)
             conv1 = tf.nn.conv1d(transformed1, w1, stride=1, padding="SAME")
             if self.use_biases:
                 conv1 = tf.add(conv1, b1)
-            transformed2 = tf.nn.sigmoid(conv1)
+            transformed2 = tf.nn.relu(conv1)
             conv2 = tf.nn.conv1d(transformed2, w2, stride=1, padding="SAME")
             if self.use_biases:
                 conv2 = tf.add(conv2, b2)
 
-        return tf.nn.sigmoid(conv2)
+        return conv2
 
     def _create_generator(self, input_batch, global_condition=None, local_condition=None):
         '''Construct an efficient incremental generator.'''
@@ -619,22 +624,22 @@ class WaveNetModel(object):
         The variables are all scoped to the given name.
         '''
         with tf.name_scope(name):
-            encoded = input_batch
+            encoded = self.encode_to_softmax_distribution(input_batch)
 
             if self.scalar_input:
-                network_input = tf.reshape(tf.cast(input_batch, tf.float32), [self.batch_size, -1, 1])
+                network_input = tf.reshape(tf.cast(input_batch, tf.float32), [-1, self.data_dim, 1])
             else:
-                network_input = tf.reshape(encoded, [self.batch_size, -1, self.quantization_channels])
+                network_input = tf.reshape(encoded, [-1,self.data_dim, self.quantization_channels])
 
             if global_condition is not None:
                 gc_encoded = tf.one_hot(global_condition, self.global_channels)
-                gc_encoded = tf.reshape(gc_encoded, [self.batch_size, -1, self.global_channels])
+                gc_encoded = tf.reshape(gc_encoded, [-1, self.global_channels])
             else:
                 gc_encoded = None
 
             if local_condition is not None:
                 lc_encoded = tf.one_hot(local_condition, int(self.local_channels / 1))  # TODO refactor to make general purpose.
-                lc_encoded = tf.reshape(lc_encoded, [self.batch_size, -1, self.local_channels])
+                lc_encoded = tf.reshape(lc_encoded, [-1, self.local_channels])
             else:
                 lc_encoded = None
 
@@ -651,16 +656,17 @@ class WaveNetModel(object):
 
                 # Cut off the samples corresponding to the receptive field
                 # for the first predicted sample.
-                target_output = tf.slice(tf.reshape(encoded, [self.batch_size, -1, self.quantization_channels]),
-                                         [0, self.receptive_field - 1, 0],
+                target_output = tf.slice(tf.reshape(encoded, [-1,self.data_dim, self.quantization_channels]),
+                                         [self.receptive_field - 1,0, 0],
                                          [-1, -1, -1])
 
-                target_output = tf.reshape(target_output, [-1, self.quantization_channels])
-                prediction = tf.reshape(raw_output, [-1, self.quantization_channels])
+                target_output = tf.reshape(target_output, [-1,self.data_dim, self.quantization_channels])
+                prediction = tf.reshape(raw_output, [-1,self.data_dim, self.quantization_channels])
 
-                loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
+                # loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
+                loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=target_output,logits=prediction)
 
-                reduced_loss = loss
+                reduced_loss = tf.reduce_mean(loss)
 
                 tf.summary.scalar('loss', reduced_loss)
 
