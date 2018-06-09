@@ -10,7 +10,7 @@ import multiprocessing
 class CsvReader(object):
     def __init__(self, files, batch_size, receptive_field, sample_size, config):
         # indicates one chunk of data.
-        chunk_size = receptive_field + sample_size
+        chunk_size = receptive_field[1] + sample_size
 
         self.data_dim = config["data_dim"]
 
@@ -23,7 +23,7 @@ class CsvReader(object):
             emotions_files.append(em_file)
         phonemes_files = []
         for df in data_files:
-            phone_file = df[:-3]+"emo"
+            phone_file = df[:-3]+"pho"
             phonemes_files.append(phone_file)
 
         self.data_batch = self.input_batch(data_files, config["data_dim"], batch_size=batch_size, chunk_size=chunk_size)
@@ -87,9 +87,15 @@ class CsvReader(object):
 
         # Resize the feature vector in case we got an incomplete read from the reader
         features = tf.transpose(features)
-        features = tf.image.resize_images(tf.reshape(features, [-1, data_dim, 1]),
-                                          size=[chunk_size, data_dim],
+
+        features = tf.reshape(features,[-1,data_dim,1])
+        features = tf.transpose(features,[1,0,2])    
+
+
+        features = tf.image.resize_images(features,
+                                          size=[data_dim, chunk_size],
                                           method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+        features = tf.transpose(features,[1,0,2])
         features = tf.reshape(features, [chunk_size, data_dim])
 
         # WARNING...
