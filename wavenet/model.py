@@ -273,19 +273,23 @@ class WaveNetModel(object):
 
             # TODO: How to make this work with batching?
             global_condition = tf.reshape(global_condition, [-1, self.global_channels])
-
-            conv_filter = conv_filter + tf.matmul(global_condition, weights_gcond_filter)
-            conv_gate = conv_gate + tf.matmul(global_condition, weights_gcond_gate)
+            
+            gc_filter_prod = tf.matmul(global_condition, weights_gcond_filter)
+            gc_gate_prod = tf.matmul(global_condition, weights_gcond_gate)
+            
+            conv_filter = conv_filter + tf.tile(tf.expand_dims(gc_filter_prod,1),[1,75,1])
+            conv_gate = conv_gate + tf.tile(tf.expand_dims(gc_gate_prod,1),[1,75,1])
 
         if local_condition is not None:
-            weights_lcond_filter = variables['lcond_filter']
-            weights_lcond_gate = variables['lcond_gate']
+            pass
+            # weights_lcond_filter = variables['lcond_filter']
+            # weights_lcond_gate = variables['lcond_gate']
 
-            # TODO: Why is this needed here? Does it work for batches?
-            local_condition = tf.reshape(local_condition, [1, -1, self.local_channels])
+            # # TODO: Why is this needed here? Does it work for batches?
+            # local_condition = tf.reshape(local_condition, [1, -1, self.local_channels])
 
-            conv_filter = conv_filter + tf.nn.conv1d(local_condition, weights_lcond_filter, stride=1, padding='SAME')
-            conv_gate = conv_gate + tf.nn.conv1d(local_condition, weights_lcond_gate, stride=1, padding='SAME')
+            # conv_filter = conv_filter + tf.nn.conv1d(local_condition, weights_lcond_filter, stride=1, padding='SAME')
+            # conv_gate = conv_gate + tf.nn.conv1d(local_condition, weights_lcond_gate, stride=1, padding='SAME')
 
         if self.use_biases:
             filter_bias = variables['filter_bias']
@@ -581,7 +585,7 @@ class WaveNetModel(object):
     def encode_to_softmax_distribution(self,data):
             
         data_shape = data.get_shape().as_list()
-        data = tf.reshape(data,[-1,data_shape[2]])
+        data = tf.reshape(data,[-1,data_shape[1]])
 
         data_shape = data.get_shape().as_list()
         data_10x = data * 10
@@ -662,7 +666,12 @@ class WaveNetModel(object):
 
                 target_output = tf.reshape(target_output, [-1,self.data_dim, self.quantization_channels])
                 prediction = tf.reshape(raw_output, [-1,self.data_dim, self.quantization_channels])
-
+                prediction = tf.slice(prediction,
+                            [self.receptive_field - 1, 0, 0],
+                            [-1,-1, -1]
+                        )
+                print target_output.shape
+                print target_output.shape
                 # loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
                 loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=target_output,logits=prediction)
 
