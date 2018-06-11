@@ -301,9 +301,9 @@ class WaveNetModel(object):
         # The 1x1 conv to produce the residual output
         weights_dense = variables['dense']
         transformed = tf.nn.conv1d(out, weights_dense, stride=1, padding="SAME", name="dense")
-
+        
         # The 1x1 conv to produce the skip output
-        skip_cut = tf.shape(out)[1] - output_width
+        skip_cut = tf.shape(out)[0] - output_width
         out_skip = tf.slice(out, [skip_cut,0, 0], [-1, -1, -1])
         weights_skip = variables['skip']
         skip_contribution = tf.nn.conv1d(out_skip, weights_skip, stride=1, padding="SAME", name="skip")
@@ -543,7 +543,7 @@ class WaveNetModel(object):
                 encoded = tf.reshape(encoded, [-1, 1])
             else:
                 samples = tf.reshape(samples,[-1,samples_shape[0],samples_shape[1]])
-                encoded = self.softmax_distrobution_encode(samples)
+                encoded = self.encode_to_softmax_distribution(samples)
             encoded = tf.reshape(encoded,[-1,self.data_dim,self.quantization_channels])
 
             raw_output = self._create_network(encoded, global_condition, local_condition)
@@ -583,63 +583,6 @@ class WaveNetModel(object):
             #     [1, self.quantization_channels])
             # return tf.reshape(last, [-1])
             return out
-    def softmax_distrobution_encode(self,data):
-        
-        data_shape = data.get_shape().as_list()
-        data = tf.reshape(data,[-1,data_shape[2]])
-
-        data_shape = data.get_shape().as_list()
-        data_10x = data * 10
-        data_10xceil = tf.ceil(data_10x + tf.keras.backend.epsilon()*10) # c
-
-        data_10xfloor = tf.floor(data_10x) # d
-
-
-
-        ceil_prob =  data_10x - data_10xfloor #a
-        floor_prob = 1 - ceil_prob #b
-
-    
-
-        
-        first_indexes = tf.range(data_shape[0]) # range1
-        second_indexes = tf.range(data_shape[1]) # range2
-
-
-
-        first_indexes = tf.reshape(tf.tile(tf.reshape(first_indexes,[-1,1]),[1,data_shape[1]]),[-1])
-        
-        second_indexes = tf.tile(second_indexes,[data_shape[0]])
-
-        first_second_indeces = tf.stack((first_indexes,second_indexes),axis=-1)
- 
-        ceil_prob_gathered = tf.gather_nd(ceil_prob,first_second_indeces) # gathered a 
-        floor_prob_gatherd = tf.gather_nd(floor_prob,first_second_indeces)
-
-        
-        # softmax_distr = tf.zeros(shape=)
-
-        data_10xceil = tf.cast(data_10xceil,tf.int32)
-        data_10xceil = tf.reshape(data_10xceil,(-1,))
-
-        data_10xfloor = tf.cast(data_10xfloor,tf.int32)
-        data_10xfloor = tf.reshape(data_10xfloor,(-1,))
-
-        indeces_ceil =  tf.stack((first_indexes,second_indexes,data_10xceil),axis=-1)
-        indeces_floor =  tf.stack((first_indexes,second_indexes,data_10xfloor),axis=-1)
-
-        ceil_prob = tf.reshape(ceil_prob,(-1,))
-        floor_prob = tf.reshape(floor_prob,(-1,))
-
-        softmax_distr_ceil =  tf.scatter_nd(indeces_ceil,ceil_prob,tf.constant((data_shape[0],data_shape[1],self.quantization_channels)))
-        softmax_distr_floor =  tf.scatter_nd(indeces_floor,floor_prob,tf.constant((data_shape[0],data_shape[1],self.quantization_channels)))
-        
-    
-
-        return softmax_distr_ceil + softmax_distr_floor
-
-
-
     def encode_to_softmax_distribution(self,data):
             
         data_shape = data.get_shape().as_list()
@@ -724,13 +667,7 @@ class WaveNetModel(object):
 
                 target_output = tf.reshape(target_output, [-1,self.data_dim, self.quantization_channels])
                 prediction = tf.reshape(raw_output, [-1,self.data_dim, self.quantization_channels])
-                prediction = tf.slice(prediction,
-                            [537, 0, 0],
-                            [-1,-1, -1]
-                        )
                 
-                print target_output.shape
-                print prediction.shape
                 # loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
                 loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=target_output,logits=prediction)
 
