@@ -547,7 +547,7 @@ class WaveNetModel(object):
             encoded = tf.reshape(encoded,[-1,self.data_dim,self.quantization_channels])
 
             raw_output = self._create_network(encoded, global_condition, local_condition)
-            out = tf.reshape(raw_output, [-1, self.quantization_channels])
+            out = tf.reshape(raw_output, [-1,self.data_dim, self.quantization_channels])
             # Cast to float64 to avoid bug in TensorFlow
             # TODO: WARNING: Is this necessary? Why is it commented out?
             # proba = tf.cast(
@@ -570,11 +570,11 @@ class WaveNetModel(object):
             raise NotImplementedError("Incremental generation does not "
                                       "support scalar input yet.")
         with tf.name_scope(name):
-            encoded = self._data_encode(samples)
-            encoded = tf.reshape(encoded, [-1, self.quantization_channels])
+            encoded = self.encode_to_softmax_distribution(samples)
+            encoded = tf.reshape(encoded, [-1, self.data_dim, self.quantization_channels])
 
             raw_output = self._create_generator(encoded, global_condition, local_condition)
-            out = tf.reshape(raw_output, [-1, self.quantization_channels])
+            out = tf.reshape(raw_output, [-1, self.data_dim, self.quantization_channels])
             # proba = tf.cast(
             #     tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
             # last = tf.slice(
