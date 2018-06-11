@@ -398,7 +398,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--learning-rate',
                         type=float,
-                        default=0.0003,
+                        default=0.0001,
                         help='Learning rate for SGD')
 
     # WAVENET.PY
@@ -429,8 +429,8 @@ if __name__ == "__main__":
                         help='Part of Wavenet Params')
     parser.add_argument('--dilations',
                         type=list,
-                        default=[1, 2, 4, 8, 16,
-                                 1, 2, 4, 8, 16, 1, 2, 4, 8,16, 1 ],
+                        default=[1, 2, 4, 8, 16, 32,
+                                 1, 2, 4, 8, 16, 32, 1, 2, 4, 8 ],
                         help='Part of Wavenet Params')
     parser.add_argument('--residual_channels',
                         type=int,
