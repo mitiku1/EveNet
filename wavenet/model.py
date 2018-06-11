@@ -48,14 +48,9 @@ class WaveNetModel(object):
                  histograms=False,
                  global_channels=128,
                  local_channels=256,
-<<<<<<< HEAD
                  data_dim = 75,
                  
                  ):
-=======
-                 context_matrix=None,
-                 data_dim=None):
->>>>>>> 87e120909317d4b9b6a4c998912dc039aeb5533f
         '''Initializes the WaveNet model.
 
         Args:
@@ -109,8 +104,6 @@ class WaveNetModel(object):
         self.receptive_field = WaveNetModel.calculate_receptive_field(
             self.filter_width, self.dilations, self.scalar_input,
             self.initial_filter_width)
-        self.context_matrix = context_matrix
-        self.data_dim = data_dim
         self.variables = self._create_variables()
 
     @staticmethod
@@ -280,7 +273,6 @@ class WaveNetModel(object):
             # TODO: How to make this work with batching?
             global_condition = tf.reshape(global_condition, [-1, self.global_channels])
             
-<<<<<<< HEAD
             gc_filter_prod = tf.matmul(global_condition, weights_gcond_filter)
             gc_gate_prod = tf.matmul(global_condition, weights_gcond_gate)
             
@@ -291,23 +283,6 @@ class WaveNetModel(object):
             pass
             # weights_lcond_filter = variables['lcond_filter']
             # weights_lcond_gate = variables['lcond_gate']
-=======
-            addition_filter = tf.matmul(global_condition, weights_gcond_filter)
-            addition_filter = tf.expand_dims(addition_filter,axis=1)
-            addition_filter = tf.tile(addition_filter,[1,self.data_dim,1])
-            conv_filter = conv_filter + addition_filter
-
-            addition_gate = tf.matmul(global_condition, weights_gcond_gate)
-            addition_gate = tf.expand_dims(addition_gate,axis=1)
-            addition_gate = tf.tile(addition_gate,[1,self.data_dim,1])
-
-            conv_gate = conv_gate + addition_gate
-
-        if local_condition is not None:
-            print local_condition,"local_condition"
-            weights_lcond_filter = variables['lcond_filter']
-            weights_lcond_gate = variables['lcond_gate']
->>>>>>> 87e120909317d4b9b6a4c998912dc039aeb5533f
 
             # # TODO: Why is this needed here? Does it work for batches?
             # local_condition = tf.reshape(local_condition, [1, -1, self.local_channels])
@@ -474,11 +449,6 @@ class WaveNetModel(object):
             conv2 = tf.nn.conv1d(transformed2, w2, stride=1, padding="SAME")
             if self.use_biases:
                 conv2 = tf.add(conv2, b2)
-<<<<<<< HEAD
-
-=======
-        # return tf.nn.sigmoid(conv2)
->>>>>>> 87e120909317d4b9b6a4c998912dc039aeb5533f
         return conv2
 
     def _create_generator(self, input_batch, global_condition=None, local_condition=None):
@@ -716,21 +686,12 @@ class WaveNetModel(object):
         The variables are all scoped to the given name.
         '''
         with tf.name_scope(name):
-<<<<<<< HEAD
             encoded = self.encode_to_softmax_distribution(input_batch)
 
             if self.scalar_input:
                 network_input = tf.reshape(tf.cast(input_batch, tf.float32), [-1, self.data_dim, 1])
             else:
                 network_input = tf.reshape(encoded, [-1,self.data_dim, self.quantization_channels])
-=======
-            encoded = self.softmax_distrobution_encode(input_batch)
-
-            if self.scalar_input:
-                network_input = tf.reshape(tf.cast(input_batch, tf.float32), [-1,self.data_dim, 1])
-            else:
-                network_input = tf.reshape(encoded, [-1, self.data_dim, self.quantization_channels])
->>>>>>> 87e120909317d4b9b6a4c998912dc039aeb5533f
 
             if global_condition is not None:
                 gc_encoded = tf.one_hot(global_condition, self.global_channels)
@@ -757,7 +718,6 @@ class WaveNetModel(object):
 
                 # Cut off the samples corresponding to the receptive field
                 # for the first predicted sample.
-<<<<<<< HEAD
                 target_output = tf.slice(tf.reshape(encoded, [-1,self.data_dim, self.quantization_channels]),
                                          [self.receptive_field - 1,0, 0],
                                          [-1, -1, -1])
@@ -765,32 +725,16 @@ class WaveNetModel(object):
                 target_output = tf.reshape(target_output, [-1,self.data_dim, self.quantization_channels])
                 prediction = tf.reshape(raw_output, [-1,self.data_dim, self.quantization_channels])
                 prediction = tf.slice(prediction,
-                            [self.receptive_field - 1, 0, 0],
+                            [537, 0, 0],
                             [-1,-1, -1]
                         )
+                
                 print target_output.shape
-                print target_output.shape
+                print prediction.shape
                 # loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
                 loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=target_output,logits=prediction)
 
                 reduced_loss = tf.reduce_mean(loss)
-=======
-                target_output = tf.slice(tf.reshape(encoded, [-1, self.data_dim, self.quantization_channels]),
-                                         [self.receptive_field - 1,0, 0],
-                                         [-1, -1,-1])
-
-                target_output = tf.reshape(target_output, [-1,self.data_dim, self.quantization_channels])
-                prediction = tf.reshape(raw_output, [-1,self.data_dim, self.quantization_channels])
-
-                # loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
-                print target_output.shape
-                print raw_output.shape
-                print network_input.shape
-                loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=target_output, logits=prediction)
-                print "loss",loss.shape
-
-                reduced_loss = tf.reduce_sum(loss)
->>>>>>> 87e120909317d4b9b6a4c998912dc039aeb5533f
 
                 tf.summary.scalar('loss', reduced_loss)
 

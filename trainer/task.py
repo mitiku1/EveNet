@@ -230,7 +230,6 @@ def run(target,
                 dilation_channels=dilation_channels,
                 skip_channels=skip_channels,
                 quantization_channels=reader.quantization_channels,
-                context_matrix=reader.context_matrix,
                 use_biases=use_biases,
                 scalar_input=False,
                 initial_filter_width=initial_filter_width,
@@ -265,17 +264,10 @@ def run(target,
             # gc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="gc")
             # lc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="lc")  # TODO set to one
 
-<<<<<<< HEAD
             # gc = tf.one_hot(gc, gc_channels)
             # lc = tf.one_hot(lc, lc_channels / 1)  # TODO set to one...
 
             # tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, lc))
-=======
-            gc = tf.one_hot(gc, gc_channels)
-            lc = tf.one_hot(lc, lc_channels / 1)  # TODO set to one...
-        
-            tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, None))
->>>>>>> 87e120909317d4b9b6a4c998912dc039aeb5533f
 
             # TODO: Implement fast generation
             """
@@ -437,8 +429,8 @@ if __name__ == "__main__":
                         help='Part of Wavenet Params')
     parser.add_argument('--dilations',
                         type=list,
-                        default=[1, 2, 4, 8, 16, 32, 64, 128,
-                                 1, 2, 4, 8, 16, 32, 64, 128],
+                        default=[1, 2, 4, 8, 16, 1,
+                                 1, 2, 4, 8, 16, 1, 2, 8, 4,8 ],
                         help='Part of Wavenet Params')
     parser.add_argument('--residual_channels',
                         type=int,
