@@ -583,6 +583,9 @@ class WaveNetModel(object):
             #     [1, self.quantization_channels])
             # return tf.reshape(last, [-1])
             return out
+    def decode_softmax_distribution(self,data):
+        decoded = self.context_matrix * data
+        return tf.reduce_sum(decoded,axis=-1)
     def encode_to_softmax_distribution(self,data):
             
         data_shape = data.get_shape().as_list()
