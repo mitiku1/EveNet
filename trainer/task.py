@@ -429,8 +429,8 @@ if __name__ == "__main__":
                         help='Part of Wavenet Params')
     parser.add_argument('--dilations',
                         type=list,
-                        default=[1, 2, 4, 8, 16, 32,
-                                 1, 2, 4, 8, 16, 32, 1, 2, 4, 8 ],
+                        default=[1, 2, 4, 8,
+                                 1, 2, 4, 8, 1, 2, 4, 8, 16, 1, 2, 4],
                         help='Part of Wavenet Params')
     parser.add_argument('--residual_channels',
                         type=int,
