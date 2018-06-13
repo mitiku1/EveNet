@@ -677,7 +677,7 @@ class WaveNetModel(object):
                 prediction = tf.reshape(raw_output, [-1,self.data_dim, self.quantization_channels])
                 
                 # loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
-                loss = -tf.reduce_sum(target_output * tf.log(prediction), 1)
+                loss = -tf.reduce_sum(target_output * tf.log(prediction), -1)
 
                 reduced_loss = tf.reduce_mean(loss)
 
