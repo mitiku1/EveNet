@@ -682,7 +682,7 @@ class WaveNetModel(object):
                 # loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
                 # loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=target_output,logits=prediction)
 
-                loss = -tf.reduce_sum(target_output * tf.log(prediction), 1)
+                loss = -tf.reduce_sum(target_output * tf.log(prediction), -1)
                 reduced_loss = tf.reduce_mean(loss)
 
                 tf.summary.scalar('loss', reduced_loss)
