@@ -35,7 +35,7 @@ PORT = 9999  # must be input parameter @TODO
 SAMPLES = 1000
 LOGDIR = './output'
 
-CURRENT_EMOTION = "Anger"
+CURRENT_EMOTION = "0"
 CURRENT_PHONEME = "SIL"
 
 
@@ -154,7 +154,10 @@ def start_socket():
     serversock.listen(5)
 
     thread.start_new_thread(listener, (serversock, 0))
-
+def decode_softmax_distribution(data):
+    context_matrix = np.arange(0, 1.1, 0.1)
+    decoded = context_matrix * data
+    return decoded.sum(axis=-1)
 
 def main():
     args = get_arguments()
@@ -174,7 +177,7 @@ def main():
     print('Restoring model from {}'.format(args.checkpoint))
     saver = tf.train.import_meta_graph(args.checkpoint + '.meta', clear_devices=False)
     saver.restore(sess, args.checkpoint)
-
+    
     # Get the config from the Graph
     config = {}
     for cfg_tensor in tf.get_collection("config"):
@@ -233,8 +236,15 @@ def main():
 
             # Run the WaveNet to predict the next sample.
             prediction = sess.run(outputs, feed_dict={'samples:0': window_data, 'gc:0': window_gc, 'lc:0': window_lc})[0]
-
-            data_feed = np.append(data_feed, prediction, axis=0)
+            frames = prediction.shape[1]/75
+            shape_keys = int(frames) * 75
+            
+            prediction = prediction[:,0:shape_keys]
+            prediction = decode_softmax_distribution(prediction)
+            
+            prediction = prediction.reshape([-1,75])
+            
+            data_feed = np.append(data_feed,prediction, axis=0)
             gc_feed = np.append(gc_feed, get_emotion_id(CURRENT_EMOTION))
             lc_feed = np.append(lc_feed, get_phoneme_id(CURRENT_PHONEME))
 

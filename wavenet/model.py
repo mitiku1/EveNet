@@ -449,7 +449,7 @@ class WaveNetModel(object):
             conv2 = tf.nn.conv1d(transformed2, w2, stride=1, padding="SAME")
             if self.use_biases:
                 conv2 = tf.add(conv2, b2)
-        return conv2
+        return tf.nn.softmax(conv2,axis=-1)
 
     def _create_generator(self, input_batch, global_condition=None, local_condition=None):
         '''Construct an efficient incremental generator.'''
@@ -544,10 +544,18 @@ class WaveNetModel(object):
             else:
                 samples = tf.reshape(samples,[-1,samples_shape[0],samples_shape[1]])
                 encoded = self.encode_to_softmax_distribution(samples)
-            encoded = tf.reshape(encoded,[-1,self.data_dim,self.quantization_channels])
+            encoded = tf.reshape(encoded,[self.batch_size, -1, self.quantization_channels])
+            if global_condition is not None:
+                
+                gc_encoded = tf.reshape(global_condition, [-1, self.global_channels])
+                gc_encoded = tf.expand_dims(gc_encoded,axis=1)
+                gc_encoded = tf.tile(gc_encoded,[1,self.data_dim,1])
+                gc_encoded = tf.reshape(gc_encoded,[-1,self.global_channels])
+            else:
+                gc_encoded = None
 
-            raw_output = self._create_network(encoded, global_condition, local_condition)
-            out = tf.reshape(raw_output, [-1,self.data_dim, self.quantization_channels])
+            raw_output = self._create_network(encoded, gc_encoded, local_condition)
+            out = tf.reshape(raw_output, [self.batch_size, -1, self.quantization_channels])
             # Cast to float64 to avoid bug in TensorFlow
             # TODO: WARNING: Is this necessary? Why is it commented out?
             # proba = tf.cast(
@@ -571,10 +579,10 @@ class WaveNetModel(object):
                                       "support scalar input yet.")
         with tf.name_scope(name):
             encoded = self.encode_to_softmax_distribution(samples)
-            encoded = tf.reshape(encoded, [-1, self.data_dim, self.quantization_channels])
+            encoded = tf.reshape(encoded, [self.batch_size, -1, self.quantization_channels])
 
             raw_output = self._create_generator(encoded, global_condition, local_condition)
-            out = tf.reshape(raw_output, [-1, self.data_dim, self.quantization_channels])
+            out = tf.reshape(raw_output, [self.batch_size, -1, self.quantization_channels])
             # proba = tf.cast(
             #     tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
             # last = tf.slice(
@@ -583,9 +591,6 @@ class WaveNetModel(object):
             #     [1, self.quantization_channels])
             # return tf.reshape(last, [-1])
             return out
-    def decode_softmax_distribution(self,data):
-        decoded = self.context_matrix * data
-        return tf.reduce_sum(decoded,axis=-1)
     def encode_to_softmax_distribution(self,data):
             
         data_shape = data.get_shape().as_list()
@@ -675,8 +680,9 @@ class WaveNetModel(object):
                 prediction = tf.reshape(raw_output, [-1, self.quantization_channels])
                 
                 # loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
-                loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=target_output,logits=prediction)
+                # loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=target_output,logits=prediction)
 
+                loss = -tf.reduce_sum(target_output * tf.log(prediction), 1)
                 reduced_loss = tf.reduce_mean(loss)
 
                 tf.summary.scalar('loss', reduced_loss)
