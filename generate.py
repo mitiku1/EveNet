@@ -35,7 +35,7 @@ PORT = 9999  # must be input parameter @TODO
 SAMPLES = 1000
 LOGDIR = './output'
 
-CURRENT_EMOTION = "0"
+CURRENT_EMOTION = "0" # CONFIDENT = 0, CONFUSED = 1
 CURRENT_PHONEME = "SIL"
 
 
@@ -276,8 +276,9 @@ def main():
     # Save the result as a wav file.
     if args.out_path:
         if not args.fast_generation:
-            data_feed = data_feed[config['receptive_field_size']:]
+            data_feed = data_feed[config['receptive_field_size']/:]
         samp = np.array(data_feed).reshape([-1, config['data_dim']])
+        print("Writing",samp.shape)
         write_output(samp, args.out_path)
         plt.imsave(args.out_path+".png", np.kron(samp[:,:], np.ones([1,20])))
 
