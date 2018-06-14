@@ -208,8 +208,8 @@ def main():
         lc_feed = [lc_lut.index(pho) for pho in lc_feed_str]
         lc_feed = lc_feed[:config['receptive_field_size']]
     else:
-        data_feed = np.zeros([config['receptive_field_size'], config['data_dim']], dtype=np.float32)
-        gc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32) + 5   # Neutral
+        data_feed = np.zeros([int(config['receptive_field_size'] / config['data_dim']), config['data_dim']], dtype=np.float32)
+        gc_feed = np.zeros(int(config['receptive_field_size'] / config['data_dim']), dtype=np.int32) + 5   # Neutral
         lc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32) + 47  # SIL
 
     last_sample_timestamp = datetime.now()
@@ -223,10 +223,10 @@ def main():
 
                 # See Alex repository for feeding in initial samples...
             else:
-                if len(data_feed) > config['receptive_field_size']:
-                    window_data = data_feed[-config['receptive_field_size']:]
-                    window_gc = gc_feed[-config['receptive_field_size']:]
-                    window_lc = lc_feed[-config['receptive_field_size']:]
+                if len(data_feed) > int(config['receptive_field_size'] / config['data_dim']):
+                    window_data = data_feed[-int(config['receptive_field_size'] / config['data_dim']):]
+                    window_gc = gc_feed[-int(config['receptive_field_size'] / config['data_dim']):]
+                    window_lc = lc_feed[-int(config['receptive_field_size'] / config['data_dim']):]
                 else:
                     window_data = data_feed[:]
                     window_gc = gc_feed[:]
@@ -236,8 +236,7 @@ def main():
 
             # exit(0)
             # Run the WaveNet to predict the next sample.
-            prediction = sess.run(outputs, feed_dict={'samples:0': window_data, 'gc:0': window_gc, 'lc:0': window_lc})[0]
-            
+            prediction = sess.run(outputs, feed_dict={'samples:0': window_data, 'gc:0': window_gc})[0]
             prediction = decode_softmax_distribution(prediction)
             
             prediction = prediction.reshape([-1,75])
@@ -252,12 +251,12 @@ def main():
             fps = 1.0/(datetime.now() - last_sample_timestamp).total_seconds()
             last_sample_timestamp = datetime.now()
 
-            print("%5i %s %s @ %.2f FPS (%.4fx) \n %s" % (step,
-                                          colored(CURRENT_EMOTION, 'blue'),
-                                          colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
-                                          fps,
-                                          fps / 120.0,
-                                          colored(str(prediction), 'grey')))
+            # print("%5i %s %s @ %.2f FPS (%.4fx) \n %s" % (step,
+            #                               colored(CURRENT_EMOTION, 'blue'),
+            #                               colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
+            #                               fps,
+            #                               fps / 120.0,
+            #                               colored(str(prediction), 'grey')))
     except KeyboardInterrupt:
         pass
 
