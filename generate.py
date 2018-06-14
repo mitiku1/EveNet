@@ -234,10 +234,13 @@ def main():
                     window_lc = lc_feed[:]
 
                 outputs = [next_sample]
-
+            print (window_data.shape)
+            print (window_gc.shape)
+            print (next_sample.shape)
+            # exit(0)
             # Run the WaveNet to predict the next sample.
-            prediction = sess.run(outputs, feed_dict={'samples:0': window_data, 'gc:0': window_gc, 'lc:0': window_lc})[0]
-
+            prediction = sess.run(outputs, feed_dict={'samples:0': window_data, 'gc:0': window_gc})[0]
+            
             prediction = decode_softmax_distribution(prediction)
             prediction = prediction.reshape(-1,75)
             

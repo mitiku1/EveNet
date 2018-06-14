@@ -11,7 +11,7 @@ class CsvReader(object):
     def __init__(self, files, batch_size, receptive_field, sample_size, config):
         # indicates one chunk of data.
         chunk_size = receptive_field + sample_size
-
+        self.sample_size = sample_size
         self.data_dim = config["data_dim"]
 
         # Initialize the main data batch. This uses raw values, no lookup table.

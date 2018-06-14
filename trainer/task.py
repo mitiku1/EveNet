@@ -212,6 +212,7 @@ def run(target,
                                                                           dilations,
                                                                           False,
                                                                           initial_filter_width)
+            
 
             reader = CsvReader(
                 train_files,
@@ -236,7 +237,8 @@ def run(target,
                 histograms=False,
                 global_channels=gc_channels,
                 local_channels=lc_channels,
-                data_dim = reader.data_dim
+                data_dim = reader.data_dim,
+                sample_size = reader.sample_size
                 )
 
             global_step_tensor = tf.contrib.framework.get_or_create_global_step()
@@ -267,7 +269,7 @@ def run(target,
             gc = tf.one_hot(gc, gc_channels)
             lc = tf.one_hot(lc, lc_channels / 1)  # TODO set to one...
 
-            tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, lc))
+            tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, None))
 
             # TODO: Implement fast generation
             """
@@ -429,8 +431,8 @@ if __name__ == "__main__":
                         help='Part of Wavenet Params')
     parser.add_argument('--dilations',
                         type=list,
-                        default=[1, 2, 4, 8, 16, 32,
-                                 1, 2, 4, 8, 16, 32, 1, 2, 4, 8 ],
+                        default=[1, 2, 4, 8,
+                                 1, 2, 4, 8, 1, 2, 4, 8, 1, 2, 4 ],
                         help='Part of Wavenet Params')
     parser.add_argument('--residual_channels',
                         type=int,

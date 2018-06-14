@@ -49,6 +49,7 @@ class WaveNetModel(object):
                  global_channels=128,
                  local_channels=256,
                  data_dim = 75,
+                 sample_size = 2
                  
                  ):
         '''Initializes the WaveNet model.
@@ -99,6 +100,7 @@ class WaveNetModel(object):
         self.global_channels = global_channels
         self.local_channels = local_channels
         self.data_dim = data_dim
+        self.sample_size = sample_size
         self.context_matrix = tf.range(0,1.1,0.1)
         self.quantization_channels = self.context_matrix.shape.as_list()[0]
         self.receptive_field = WaveNetModel.calculate_receptive_field(
@@ -412,7 +414,7 @@ class WaveNetModel(object):
         current_layer = self._create_causal_layer(current_layer)
 
         output_width = tf.shape(input_batch)[0] - self.receptive_field + 1
-
+       
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
             for layer_index, dilation in enumerate(self.dilations):
@@ -528,7 +530,10 @@ class WaveNetModel(object):
             shape = [self.batch_size, -1, self.quantization_channels]
             encoded = tf.reshape(encoded, shape)
         return encoded
-
+    def decode_softmax_distribution(self,data):
+        context_matrix = tf.range(0, 1.1, 0.1)
+        decoded = context_matrix * data
+        return tf.reduce_sum(decoded, axis=-1)
     def predict_proba(self, samples, global_condition=None,
                       local_condition=None, name='wavenet'):
         '''Computes the probability distribution of the next sample based on
@@ -544,6 +549,7 @@ class WaveNetModel(object):
             else:
                 samples = tf.reshape(samples,[-1,samples_shape[0],samples_shape[1]])
                 encoded = self.encode_to_softmax_distribution(samples)
+            
             encoded = tf.reshape(encoded,[-1,self.data_dim,self.quantization_channels])
             if global_condition is not None:
                 gc_encoded = tf.expand_dims(global_condition,axis=1)
@@ -551,18 +557,19 @@ class WaveNetModel(object):
                 gc_encoded = tf.reshape(gc_encoded,[-1,self.global_channels])
             else:
                 gc_encoded = None
-
-            raw_output = self._create_network(encoded, gc_encoded, local_condition)
+            
+            raw_output = self._create_network(encoded, global_condition, local_condition)
             out = tf.reshape(raw_output, [-1,self.data_dim, self.quantization_channels])
             # Cast to float64 to avoid bug in TensorFlow
             # TODO: WARNING: Is this necessary? Why is it commented out?
             # proba = tf.cast(
             #    tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
+            # proba = self.decode_softmax_distribution(out)
+            # print "prob",proba.shape
             # last = tf.slice(
             #    proba,
             #    [tf.shape(proba)[0] - 1, 0],
             #    [1, self.quantization_channels])
-            
             return out
 
     def predict_proba_incremental(self, samples, global_condition=None,
@@ -594,7 +601,7 @@ class WaveNetModel(object):
     def encode_to_softmax_distribution(self,data):
             
         data_shape = data.get_shape().as_list()
-        data = tf.reshape(data,[-1,data_shape[1]])
+        data = tf.reshape(data,[-1,data_shape[-1]])
 
         data_shape = data.get_shape().as_list()
         data_10x = data * 10
@@ -636,9 +643,9 @@ class WaveNetModel(object):
 
         The variables are all scoped to the given name.
         '''
+        
         with tf.name_scope(name):
             encoded = self.encode_to_softmax_distribution(input_batch)
-
             if self.scalar_input:
                 network_input = tf.reshape(tf.cast(input_batch, tf.float32), [-1, self.data_dim, 1])
             else:
@@ -658,8 +665,8 @@ class WaveNetModel(object):
 
             # Cut off the last sample of network input to preserve causality.
             # TODO: Is this necessary? It is not in the LC implementation...
-            # network_input_width = tf.shape(network_input)[1] - 1
-            # network_input = tf.slice(network_input, [0, 0, 0], [-1, network_input_width, -1])
+            # network_input_width = tf.shape(network_input)[0] - 1
+            # network_input = tf.slice(network_input, [0, 0, 0], [network_input_width, -1, -1])
 
             raw_output = self._create_network(network_input,
                                               global_condition=gc_encoded,
@@ -670,11 +677,12 @@ class WaveNetModel(object):
                 # Cut off the samples corresponding to the receptive field
                 # for the first predicted sample.
                 target_output = tf.slice(tf.reshape(encoded, [-1,self.data_dim, self.quantization_channels]),
-                                         [self.receptive_field - 1,0, 0],
+                                         [self.receptive_field,0, 0],
                                          [-1, -1, -1])
-
                 target_output = tf.reshape(target_output, [-1,self.data_dim, self.quantization_channels])
-                prediction = tf.reshape(raw_output, [-1,self.data_dim, self.quantization_channels])
+                prediction_width = tf.shape(raw_output)[0] -1
+                prediction = tf.slice(raw_output,[0, 0, 0],[prediction_width, -1, -1 ])
+                prediction = tf.reshape(prediction, [-1,self.data_dim, self.quantization_channels])
                 
                 # loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
                 loss = -tf.reduce_sum(target_output * tf.log(prediction), -1)

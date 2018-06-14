@@ -52,7 +52,9 @@ def causal_conv(value, filter_, dilation, name='causal_conv'):
         padded = tf.pad(value, padding)
         if dilation > 1:
             # transformed = time_to_batch(padded, dilation)
+            padded = tf.reshape(padded,(1, -1, 64))
             restored = tf.nn.conv1d(padded, filter_, stride=1, padding='SAME')
+            restored = tf.reshape(restored,(-1,75,64))
             # restored = batch_to_time(conv, dilation)
         else:
             restored = tf.nn.conv1d(padded, filter_, stride=1, padding='SAME')
