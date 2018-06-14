@@ -49,6 +49,7 @@ class WaveNetModel(object):
                  global_channels=128,
                  local_channels=256,
                  data_dim = 75,
+                 sample_size = 2
                  
                  ):
         '''Initializes the WaveNet model.
@@ -103,18 +104,19 @@ class WaveNetModel(object):
         self.quantization_channels = self.context_matrix.shape.as_list()[0]
         self.receptive_field = WaveNetModel.calculate_receptive_field(
             self.filter_width, self.dilations, self.scalar_input,
-            self.initial_filter_width)
+            self.initial_filter_width,self.data_dim)
+        self.sample_size = sample_size
         self.variables = self._create_variables()
 
     @staticmethod
     def calculate_receptive_field(filter_width, dilations, scalar_input,
-                                  initial_filter_width):
+                                  initial_filter_width,data_dim):
         receptive_field = (filter_width - 1) * sum(dilations) + 1
         if scalar_input:
             receptive_field += initial_filter_width - 1
         else:
             receptive_field += filter_width - 1
-        return receptive_field
+        return (receptive_field-1) * data_dim
 
     def _create_variables(self):
         '''This function creates all variables used by the network.
@@ -411,7 +413,8 @@ class WaveNetModel(object):
 
         current_layer = self._create_causal_layer(current_layer)
 
-        output_width = tf.shape(input_batch)[1] - self.receptive_field + 1
+        output_width = self.data_dim
+      
 
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
@@ -551,6 +554,7 @@ class WaveNetModel(object):
                 gc_encoded = tf.expand_dims(gc_encoded,axis=1)
                 gc_encoded = tf.tile(gc_encoded,[1,self.data_dim,1])
                 gc_encoded = tf.reshape(gc_encoded,[-1,self.global_channels])
+                gc_encoded = tf.slice(gc_encoded,[0,0],[self.receptive_field,-1 ])
             else:
                 gc_encoded = None
 
@@ -594,7 +598,7 @@ class WaveNetModel(object):
     def encode_to_softmax_distribution(self,data):
             
         data_shape = data.get_shape().as_list()
-        data = tf.reshape(data,[-1,data_shape[1]])
+        data = tf.reshape(data,[-1,data_shape[-1]])
 
         data_shape = data.get_shape().as_list()
         data_10x = data * 10
@@ -638,7 +642,6 @@ class WaveNetModel(object):
         '''
         with tf.name_scope(name):
             encoded = self.encode_to_softmax_distribution(input_batch)
-
             if self.scalar_input:
                 network_input = tf.reshape(tf.cast(input_batch, tf.float32), [self.batch_size, -1, 1])
             else:
@@ -650,6 +653,8 @@ class WaveNetModel(object):
                 gc_encoded = tf.expand_dims(gc_encoded,axis=1)
                 gc_encoded = tf.tile(gc_encoded,[1,self.data_dim,1])
                 gc_encoded = tf.reshape(gc_encoded,[-1,self.global_channels])
+                gc_encoded = tf.slice(gc_encoded,[0,0],[self.receptive_field,-1 ])
+            
             else:
                 gc_encoded = None
 
@@ -661,9 +666,9 @@ class WaveNetModel(object):
 
             # Cut off the last sample of network input to preserve causality.
             # TODO: Is this necessary? It is not in the LC implementation...
-            # network_input_width = tf.shape(network_input)[1] - 1
-            # network_input = tf.slice(network_input, [0, 0, 0], [-1, network_input_width, -1])
-            
+            network_input_width = tf.shape(network_input)[1] - self.data_dim
+           
+            network_input = tf.slice(network_input, [0, 0, 0], [-1, network_input_width, -1])
             raw_output = self._create_network(network_input,
                                               global_condition=gc_encoded,
                                               local_condition=lc_encoded)
@@ -672,10 +677,11 @@ class WaveNetModel(object):
 
                 # Cut off the samples corresponding to the receptive field
                 # for the first predicted sample.
-                target_output = tf.slice(tf.reshape(encoded, [-1, self.quantization_channels]),
-                                         [self.receptive_field - 1, 0],
-                                         [-1, -1])
-
+                encoded = tf.reshape(encoded, [-1, self.quantization_channels])
+                
+                target_output = tf.slice(encoded,
+                                         [self.receptive_field-1, 0],
+                                         [self.data_dim, -1])
                 target_output = tf.reshape(target_output, [-1,self.quantization_channels])
                 prediction = tf.reshape(raw_output, [-1, self.quantization_channels])
                 

@@ -10,9 +10,9 @@ import multiprocessing
 class CsvReader(object):
     def __init__(self, files, batch_size, receptive_field, sample_size, config):
         # indicates one chunk of data.
-        chunk_size = receptive_field + sample_size
-
+        self.sample_size = sample_size
         self.data_dim = config["data_dim"]
+        chunk_size = receptive_field/self.data_dim + 1
 
         # Initialize the main data batch. This uses raw values, no lookup table.
         data_files = [files[i] for i in range(len(files)) if files[i].endswith(config["data_suffix"])]

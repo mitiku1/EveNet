@@ -211,8 +211,8 @@ def run(target,
             receptive_field_size = WaveNetModel.calculate_receptive_field(filter_width,
                                                                           dilations,
                                                                           False,
-                                                                          initial_filter_width)
-
+                                                                          initial_filter_width,reader_config["data_dim"])
+  
             reader = CsvReader(
                 train_files,
                 batch_size=batch_size,
@@ -236,7 +236,8 @@ def run(target,
                 histograms=False,
                 global_channels=gc_channels,
                 local_channels=lc_channels,
-                data_dim = reader.data_dim
+                data_dim = reader.data_dim,
+                sample_size=reader.sample_size
                 )
 
             global_step_tensor = tf.contrib.framework.get_or_create_global_step()
@@ -245,7 +246,7 @@ def run(target,
                 l2_regularization_strength = None
 
             loss = net.loss(input_batch=reader.data_batch,
-                            global_condition=reader.gc_batch,
+                            global_condition=reader.gc_batch, 
                             local_condition=reader.lc_batch,
                             l2_regularization_strength=l2_regularization_strength)
 
@@ -430,7 +431,7 @@ if __name__ == "__main__":
     parser.add_argument('--dilations',
                         type=list,
                         default=[1, 2, 4, 8,
-                                 1, 2, 4, 8, 1, 2, 4, 8, 16, 1, 2, 4],
+                                 1, 2, 4, 8, 1, 2, 4, 8, 1, 2, 4],
                         help='Part of Wavenet Params')
     parser.add_argument('--residual_channels',
                         type=int,

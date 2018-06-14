@@ -234,12 +234,10 @@ def main():
 
                 outputs = [next_sample]
 
+            # exit(0)
             # Run the WaveNet to predict the next sample.
             prediction = sess.run(outputs, feed_dict={'samples:0': window_data, 'gc:0': window_gc, 'lc:0': window_lc})[0]
-            frames = prediction.shape[1]/75
-            shape_keys = int(frames) * 75
             
-            prediction = prediction[:,0:shape_keys]
             prediction = decode_softmax_distribution(prediction)
             
             prediction = prediction.reshape([-1,75])
